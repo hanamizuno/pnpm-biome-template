@@ -1,11 +1,11 @@
-FROM node:22-slim
+FROM node:24-slim
 
 # Switch to root for package installation
 USER root
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# node:22-slim lacks curl — install it first for gh keyring fetch
+# node:24-slim lacks curl — install it first for gh keyring fetch
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=claude
-# node:22-slim ships with user/group "node" at UID/GID 1000.
+# node:24-slim ships with user/group "node" at UID/GID 1000.
 # Rename them so the container user is "claude" while keeping the same IDs.
 RUN usermod -l ${USERNAME} -d /home/${USERNAME} -m node \
     && groupmod -n ${USERNAME} node \

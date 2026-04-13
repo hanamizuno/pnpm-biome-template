@@ -139,7 +139,7 @@ TypeScript設定：
 
 ### 技術選択
 
-- **Node.js v22**: LTSランタイム
+- **Node.js v24**: LTSランタイム
 - **pnpm**: 高速・効率的なパッケージマネージャー
 - **Biome v2**: 高速なフォーマッター・リンター
 - **vitest**: TypeScriptネイティブなテストランナー
