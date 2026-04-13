@@ -1,0 +1,14 @@
+# zizmor configuration file
+# GitHub Actions security scanner configuration
+
+rules:
+  unpinned-uses:
+    config:
+      # All actions must be pinned to a commit hash
+      policies:
+        "actions/checkout": ref-pin
+        "pnpm/action-setup": ref-pin
+        "actions/setup-node": ref-pin
+        "actions/setup-python": ref-pin
+        "actions/upload-artifact": ref-pin
+        "actions/github-script": ref-pin

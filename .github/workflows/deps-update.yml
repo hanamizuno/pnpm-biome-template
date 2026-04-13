@@ -1,0 +1,110 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    # 毎週月曜日 09:00 UTC (日本時間 18:00)
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      update_mode:
+        description: "Update mode"
+        required: true
+        default: "compatible"
+        type: choice
+        options:
+          - compatible
+          - latest
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@08c4be7e2e672a47d11bd04269e27e5f3e8529cb # v6.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for outdated dependencies
+        id: outdated
+        run: |
+          echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if ! pnpm outdated 2>&1 | tee outdated.txt; then
+            cat outdated.txt >> $GITHUB_STEP_SUMMARY
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          else
+            cat outdated.txt >> $GITHUB_STEP_SUMMARY
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update dependencies
+        if: steps.outdated.outputs.has_updates == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPDATE_MODE: ${{ github.event.inputs.update_mode }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$UPDATE_MODE" = "latest" ]; then
+            pnpm update --latest
+          else
+            pnpm update
+          fi
+
+      - name: Security audit
+        id: audit
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: |
+          echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
+          if ! pnpm audit --audit-level=high 2>&1 | tee -a $GITHUB_STEP_SUMMARY; then
+            echo "audit_failed=true" >> $GITHUB_OUTPUT
+            echo "::error::High/Critical vulnerabilities found"
+            exit 1
+          fi
+
+      - name: Run tests
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: pnpm test
+
+      - name: Create Pull Request
+        if: steps.outdated.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="deps/update-dependencies"
+          git checkout -b "$BRANCH"
+          git add package.json pnpm-lock.yaml
+          git commit -m "chore(deps): update dependencies"
+          git push -u origin "$BRANCH" --force
+
+          # 既存PRがあればスキップ
+          if ! gh pr list --head "$BRANCH" --state open | grep -q .; then
+            gh pr create \
+              --title "chore(deps): 依存関係の更新" \
+              --body "## 概要
+          依存関係を自動更新しました。
+
+          ## チェックリスト
+          - [ ] テストが通過していることを確認
+          - [ ] 破壊的変更がないことを確認" \
+              --label dependencies
+          fi

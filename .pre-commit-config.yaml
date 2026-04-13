@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: biome-format
+        name: biome format
+        entry: pnpm biome format --check
+        language: system
+        pass_filenames: false
+      - id: biome-lint
+        name: biome lint
+        entry: pnpm biome lint
+        language: system
+        pass_filenames: false

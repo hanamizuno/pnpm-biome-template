@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+.devcontainer
+.claude
+coverage
+node_modules
+dist
+*.md
+!README.md
+.env
+.env.*
+.gitignore
+.pre-commit-config.yaml
+.secretlintrc.json
+.zizmor.yml

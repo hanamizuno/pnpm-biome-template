@@ -1,0 +1,25 @@
+{
+  "name": "node-pnpm-biome",
+  "dockerComposeFile": ["../compose.dev.yml", "compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "userEnvProbe": "loginInteractiveShell",
+  "overrideCommand": true,
+  "customizations": {
+    "vscode": {
+      "extensions": ["biomejs.biome", "editorconfig.editorconfig"],
+      "settings": {
+        "editor.defaultFormatter": "biomejs.biome",
+        "[typescript]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports.biome": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+  "postCreateCommand": "pnpm install --frozen-lockfile"
+}

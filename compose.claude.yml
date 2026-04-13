@@ -1,0 +1,21 @@
+services:
+  claude:
+    build:
+      context: .
+      dockerfile: claude/Dockerfile
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      FIREWALL_MODE: ${FIREWALL_MODE:-strict}
+      CLAUDE_CONFIG_DIR: /home/claude/.claude
+      GIT_USER_NAME: ${GIT_USER_NAME:-}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
+    volumes:
+      - .:/workspace:delegated
+      - claude-config:/home/claude/.claude
+      - claude-history:/commandhistory
+
+volumes:
+  claude-config:
+  claude-history:

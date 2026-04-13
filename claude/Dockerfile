@@ -1,0 +1,40 @@
+FROM node:22-slim
+
+# Switch to root for package installation
+USER root
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# curl: Claude Code native installer
+# git, sudo: development essentials
+# iptables, ipset, iproute2, dnsutils, aggregate, jq: firewall
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git sudo ca-certificates \
+    iptables ipset iproute2 dnsutils aggregate jq \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ARG USERNAME=claude
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && mkdir -p /workspace /home/${USERNAME}/.claude /commandhistory \
+    && chown -R ${USERNAME}:${USERNAME} /workspace /home/${USERNAME}/.claude /commandhistory
+
+# Persist bash history across container restarts
+RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
+    && echo "$SNIPPET" >> /home/${USERNAME}/.bashrc \
+    && touch /commandhistory/.bash_history \
+    && chown -R ${USERNAME} /commandhistory
+
+# Firewall and entrypoint scripts (sudo allowed only for firewall)
+COPY claude/init-firewall.sh claude/entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh \
+    && echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" \
+       > /etc/sudoers.d/${USERNAME}-firewall \
+    && chmod 0440 /etc/sudoers.d/${USERNAME}-firewall
+
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+WORKDIR /workspace
+USER ${USERNAME}
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
