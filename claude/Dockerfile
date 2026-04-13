@@ -37,4 +37,8 @@ RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh \
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 WORKDIR /workspace
 USER ${USERNAME}
+
+# Install Claude Code at build time so it is available immediately on container start
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
