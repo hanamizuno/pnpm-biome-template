@@ -5,25 +5,28 @@ USER root
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# node:22-slim lacks curl — install it first for gh keyring fetch
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # GitHub CLI (gh) — add apt repository before install
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       > /etc/apt/sources.list.d/github-cli.list
 
-# curl: Claude Code native installer
 # git, gh, sudo: development essentials
 # iptables, ipset, iproute2, dnsutils, aggregate, jq: firewall
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git gh sudo ca-certificates \
+    git gh sudo \
     iptables ipset iproute2 dnsutils aggregate jq \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=claude
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+# node:22-slim ships with user/group "node" at UID/GID 1000.
+# Rename them so the container user is "claude" while keeping the same IDs.
+RUN usermod -l ${USERNAME} -d /home/${USERNAME} -m node \
+    && groupmod -n ${USERNAME} node \
     && mkdir -p /workspace /home/${USERNAME}/.claude /commandhistory \
     && chown -R ${USERNAME}:${USERNAME} /workspace /home/${USERNAME}/.claude /commandhistory
 
