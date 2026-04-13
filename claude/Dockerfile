@@ -5,11 +5,17 @@ USER root
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# GitHub CLI (gh) — add apt repository before install
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list
+
 # curl: Claude Code native installer
-# git, sudo: development essentials
+# git, gh, sudo: development essentials
 # iptables, ipset, iproute2, dnsutils, aggregate, jq: firewall
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git sudo ca-certificates \
+    curl git gh sudo ca-certificates \
     iptables ipset iproute2 dnsutils aggregate jq \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
