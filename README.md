@@ -115,6 +115,44 @@ pnpm scan:secrets
 - **Git author 情報:** 起動スクリプト（`scripts/claude-start.sh`）がホストの `git config` から `user.name` / `user.email` を読み取り、環境変数で渡します。標準・XDG・Nix/home-manager どのレイアウトでも動作します。
 - **SSH・GitHub CLI 認証（opt-in）:** オーバーライドファイル `compose.claude.auth.yml` を追加すると `~/.ssh` と `~/.config/gh` を read-only マウントします。SSH 経由の `git push`/`pull` や `gh` CLI 操作（PR 作成、Issue 管理等）に必要です。
 
+### 認証トークンの初回セットアップ
+
+コンテナ内で Claude Code と gh CLI を使うには、ホスト側で認証トークンを環境変数に設定しておく必要があります。
+
+**1. Claude Code OAuth トークン**
+
+Max サブスクリプション枠で動作する長期トークンを発行します（有効期限 1 年）。
+
+> **注意:** `ANTHROPIC_API_KEY` は API 従量課金用です。Max 枠を使う場合は `CLAUDE_CODE_OAUTH_TOKEN` を設定してください。
+
+```bash
+# トークンを発行
+claude setup-token
+
+# ~/.config/claude-code/env に追記
+echo 'export CLAUDE_CODE_OAUTH_TOKEN=<発行されたトークン>' >> ~/.config/claude-code/env
+```
+
+**2. GitHub CLI トークン**
+
+macOS では gh CLI が Keychain にトークンを保存するため、コンテナからは参照できません。環境変数で渡します。
+
+```bash
+# トークンを取得
+gh auth token
+
+# ~/.config/claude-code/env に追記
+echo 'export GH_TOKEN=<取得したトークン>' >> ~/.config/claude-code/env
+```
+
+**3. シェルへの反映**
+
+```bash
+source ~/.config/claude-code/env
+```
+
+`scripts/claude-start.sh` 経由で起動すると、ホストの環境変数が自動で Docker Compose に渡されます。
+
 ### 起動方法
 
 ```bash
