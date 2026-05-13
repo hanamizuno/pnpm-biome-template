@@ -44,6 +44,9 @@ build/Release
 node_modules/
 jspm_packages/
 
+# pnpm content-addressable store (Docker ビルドなどで生成される)
+.pnpm-store/
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
