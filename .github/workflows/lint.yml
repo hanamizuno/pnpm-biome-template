@@ -9,9 +9,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -36,3 +41,6 @@ jobs:
 
       - name: Type check
         run: pnpm typecheck
+
+      - name: Secret scan
+        run: pnpm scan:secrets

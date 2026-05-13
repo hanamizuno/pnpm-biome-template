@@ -11,3 +11,14 @@ repos:
         entry: pnpm biome lint
         language: system
         pass_filenames: false
+      - id: typecheck
+        name: tsc --noEmit
+        entry: pnpm typecheck
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx)$
+      - id: secretlint
+        name: secretlint
+        entry: pnpm exec secretlint
+        language: system
+        pass_filenames: true

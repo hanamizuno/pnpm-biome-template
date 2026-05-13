@@ -61,39 +61,17 @@ pnpm release-check
 
 # シークレットスキャン
 pnpm scan:secrets
+
+# ビルド（dist/ に出力）
+pnpm build
+
+# ビルド成果物を実行
+pnpm start
 ```
 
 ## プロジェクト構造
 
-```
-.
-├── src/
-│   ├── main.ts              # エントリーポイント
-│   ├── main.test.ts         # テストファイル
-│   └── main.bench.ts        # ベンチマークファイル
-├── package.json             # プロジェクト設定・依存関係
-├── pnpm-lock.yaml           # 依存関係のロックファイル
-├── tsconfig.json            # TypeScript設定
-├── biome.json               # Biome設定
-├── vitest.config.ts         # vitest設定
-├── AGENTS.md                # AIエージェント用ガイドライン
-├── CLAUDE.md                # AGENTS.md へのシンボリックリンク
-├── CHANGELOG.md             # 変更履歴
-├── LICENSE                  # MITライセンス
-├── README.md                # プロジェクト説明（本ファイル）
-├── .pre-commit-config.yaml  # pre-commit hooks設定
-├── .secretlintrc.json       # secretlint設定
-├── .zizmor.yml              # GitHub Actionsセキュリティ設定
-├── .github/
-│   └── workflows/           # GitHub Actions CI/CD
-│       ├── lint.yml          # リンターとフォーマットチェック
-│       ├── test.yml          # テスト実行
-│       ├── lint_gha.yml      # GitHub Actions自体のリント
-│       ├── security.yml      # 依存関係のセキュリティ監査
-│       ├── deps-update.yml   # 依存関係の自動更新
-│       └── copilot-setup-steps.yml # GitHub Copilot環境セットアップ
-└── agent/                   # エージェント用ドキュメント保存ディレクトリ
-```
+詳細は [AGENTS.md](AGENTS.md) を参照。
 
 ## AI Agent Dev Container
 

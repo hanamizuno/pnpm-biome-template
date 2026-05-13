@@ -3,17 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.1.1",
   "scripts": {
     "dev": "tsx --watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "bench": "vitest bench",
     "fmt": "biome format --write .",
+    "fmt:check": "biome format .",
     "lint": "biome lint .",
     "check": "biome check . && tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "release-check": "biome ci . && tsc --noEmit && vitest run",
-    "scan:secrets": "npx secretlint \"**/*\""
+    "scan:secrets": "pnpm exec secretlint \"**/*\""
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

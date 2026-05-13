@@ -8,6 +8,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,6 +19,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+
+    env:
+      FORCE_COLOR: "0"
+      NO_COLOR: "1"
 
     steps:
       - name: Checkout code
@@ -57,22 +65,24 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const report = process.env.COVERAGE_REPORT.trim();
+            const report = (process.env.COVERAGE_REPORT || "").trim();
 
             const runURL = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
             const downloadLink = `[HTMLレポートをArtifactsからダウンロード](${runURL})`;
 
-            const reportSection = report || "カバレッジデータがありません。";
-            const body = `## テストカバレッジレポート\n\n${downloadLink}\n\n${reportSection}`;
+            const reportSection = report
+              ? `\n\n\`\`\`\n${report}\n\`\`\``
+              : "\n\nカバレッジデータがありません。";
+            const marker = "## テストカバレッジレポート";
+            const body = `${marker}\n\n${downloadLink}${reportSection}`;
 
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            const marker = "## テストカバレッジレポート";
             const existing = comments.find(c =>
-              c.user.login === "github-actions[bot]" && c.body.startsWith(marker)
+              c.user?.login === "github-actions[bot]" && (c.body ?? "").startsWith(marker)
             );
 
             if (existing) {
@@ -80,13 +90,13 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existing.id,
-                body: body,
+                body,
               });
             } else {
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: body,
+                body,
               });
             }

@@ -26,7 +26,7 @@ pnpm test:cov
 # コードフォーマット
 pnpm fmt
 # フォーマットチェックのみ（CIで使用）
-pnpm biome format --check .
+pnpm fmt:check
 
 # リンター実行
 pnpm lint
@@ -46,7 +46,13 @@ pnpm release-check
 # シークレットスキャン（機密情報の検出）
 pnpm scan:secrets
 
-# 通常の実行
+# ビルド（tsc）
+pnpm build
+
+# ビルド成果物を実行
+pnpm start
+
+# 開発実行（tsx で TS を直接実行）
 pnpm tsx src/main.ts
 ```
 
@@ -79,7 +85,8 @@ pnpm update
 ├── package.json             # プロジェクト設定・依存関係
 ├── pnpm-lock.yaml           # 依存関係のロックファイル
 ├── pnpm-workspace.yaml      # pnpm 設定（allowBuilds 等）
-├── tsconfig.json            # TypeScript設定
+├── tsconfig.json            # TypeScript設定（型チェック用、テスト/ベンチ込み）
+├── tsconfig.build.json      # ビルド用設定（テスト/ベンチを除外）
 ├── biome.json               # Biome（フォーマッター・リンター）設定
 ├── vitest.config.ts         # vitest設定
 ├── AGENTS.md                # AIエージェント用ガイドライン（本ファイル）
@@ -87,52 +94,62 @@ pnpm update
 ├── CHANGELOG.md             # 変更履歴
 ├── LICENSE                  # MITライセンス
 ├── README.md                # プロジェクト説明
+├── .editorconfig            # エディタ共通設定
+├── .npmrc                   # pnpm 挙動設定（engine-strict 等）
+├── .nvmrc                   # Node.js バージョン固定
 ├── .pre-commit-config.yaml  # pre-commit hooks設定
 ├── .secretlintrc.json       # secretlint設定
+├── .secretlintignore        # secretlint 除外パターン
 ├── .zizmor.yml              # GitHub Actionsセキュリティ設定
-├── Dockerfile               # マルチステージ（dev / prod / devcontainer）
+├── Dockerfile               # マルチステージ（dev / builder / prod / devcontainer）
 ├── compose.yml              # 本番用 Docker Compose
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .devcontainer/
 │   └── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
-├── .github/
-│   └── workflows/           # GitHub Actions CI/CD
-│       ├── lint.yml          # リンターとフォーマットチェック
-│       ├── test.yml          # テスト実行
-│       ├── lint_gha.yml      # GitHub Actions自体のリント
-│       ├── security.yml      # 依存関係のセキュリティ監査
-│       ├── deps-update.yml   # 依存関係の自動更新
-│       └── copilot-setup-steps.yml # GitHub Copilot環境セットアップ
-└── agent/                   # エージェント用ドキュメント保存ディレクトリ
+└── .github/
+    ├── dependabot.yml       # GitHub Actions の自動更新
+    └── workflows/           # GitHub Actions CI/CD
+        ├── lint.yml          # リンターとフォーマットチェック + secretlint
+        ├── test.yml          # テスト実行
+        ├── lint_gha.yml      # GitHub Actions自体のリント
+        ├── security.yml      # 依存関係のセキュリティ監査
+        ├── deps-update.yml   # 依存関係の自動更新
+        └── copilot-setup-steps.yml # GitHub Copilot環境セットアップ
 ```
 
 ### 設定ファイル
 
 #### biome.json
 
-プロジェクトのフォーマッター・リンター設定：
+プロジェクトのフォーマッター・リンター設定（Biome v2）：
 
+- **vcs**: git 連携、`.gitignore` を尊重
 - **formatter**: 行幅100文字、インデント: スペース2つ
 - **javascript.formatter**: セミコロンあり、ダブルクォート
 - **linter**: 推奨ルール使用
-- **organizeImports**: 有効
+- **assist.actions.source.organizeImports**: 有効（v2 のパス）
 
 #### tsconfig.json
 
 TypeScript設定：
 
-- **target**: ES2023
-- **module**: Node16
-- **strict**: 有効
+- **target**: ES2025
+- **module / moduleResolution**: nodenext
+- **lib**: ES2025
+- **strict** に加え `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+  `isolatedModules`, `verbatimModuleSyntax` などを有効化
 - **rootDir**: ./src
 - **outDir**: ./dist
+
+ビルド用には `tsconfig.build.json` がテスト/ベンチを除外して継承する。
 
 #### vitest.config.ts
 
 テスト設定：
 
-- **coverage.provider**: v8
-- **coverage.reporter**: text, html
+- **include**: `src/**/*.test.ts`、**benchmark.include**: `src/**/*.bench.ts`
+- **clearMocks / restoreMocks**: 有効
+- **coverage.provider**: v8 / **reporter**: text, html / 80% しきい値
 
 #### GitHub Actions
 

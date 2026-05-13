@@ -4,4 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    command: pnpm dev
+    init: true
+    # tsx --watch がホスト側のソース変更を検出できるよう bind mount
+    volumes:
+      - .:/workspace:cached
+      # コンテナ側 node_modules をホストで上書きしない
+      - /workspace/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=1

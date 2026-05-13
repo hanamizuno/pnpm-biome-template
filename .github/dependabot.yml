@@ -1,13 +1,13 @@
 version: 2
 
+# npm 依存関係は deps-update.yml が pnpm で扱うため、ここでは GitHub Actions のみを扱う
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    groups:
+      gh-actions:
+        patterns:
+          - "*"
