@@ -1,8 +1,42 @@
 {
-  "name": "node-pnpm-biome",
-  "dockerComposeFile": ["../compose.dev.yml", "compose.yml"],
-  "service": "app",
+  "name": "pnpm-biome-agent",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "target": "devcontainer"
+  },
   "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode",
+      "configureZshAsDefaultShell": false,
+      "installOhMyZsh": false,
+      "installOhMyZshConfig": false,
+      "upgradePackages": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "overrideFeatureInstallOrder": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "ghcr.io/devcontainers/features/github-cli",
+    "ghcr.io/anthropics/devcontainer-features/claude-code"
+  ],
+  "mounts": [
+    "source=claude-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
+    "source=agent-history-${devcontainerId},target=/commandhistory,type=volume"
+  ],
+  "containerEnv": {
+    "HISTFILE": "/commandhistory/.bash_history",
+    "PROMPT_COMMAND": "history -a"
+  },
+  "waitFor": "postCreateCommand",
+  "postCreateCommand": "pnpm install --frozen-lockfile",
+  "postStartCommand": "test -d node_modules || pnpm install --frozen-lockfile",
   "userEnvProbe": "loginInteractiveShell",
   "overrideCommand": true,
   "customizations": {
@@ -20,6 +54,5 @@
         "typescript.tsdk": "node_modules/typescript/lib"
       }
     }
-  },
-  "postCreateCommand": "pnpm install --frozen-lockfile"
+  }
 }

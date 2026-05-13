@@ -12,6 +12,7 @@
 - GitHub Actions による CI/CD
 - シークレットスキャンによる機密情報漏洩防止
 - 依存関係の自動更新
+- VS Code Dev Containers: `.devcontainer/devcontainer.json` で AI エージェントツールチェーン（Claude Code CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) としてプロジェクト環境に重ねて注入。専用 Dockerfile やオーバーライドは不要。
 
 ## セットアップ
 
@@ -94,83 +95,104 @@ pnpm scan:secrets
 └── agent/                   # エージェント用ドキュメント保存ディレクトリ
 ```
 
-## Claude Code Container
+## AI Agent Dev Container
 
-`--dangerously-skip-permissions` で Claude Code を自律実行するための隔離コンテナ。
+Dev Container は AI コーディングエージェント（Claude Code 等）の実行環境も兼ねます。エージェントのツールチェーンは [Dev Container Features](https://containers.dev/implementors/features/) として Node.js + pnpm の開発環境に重ねて注入されるため、プロジェクト固有の `claude/` ディレクトリや compose オーバーライドは不要です。
 
-- **ネットワークファイアウォール:** iptables による送信トラフィック制御
-- **非 root ユーザー:** `claude`（UID 1000）で実行
-- **Docker ソケットなし:** ホスト Docker にアクセス不可
-- **ワークスペース隔離:** プロジェクトディレクトリのみマウント
+### 同梱 Features
 
-### ファイアウォールモード
+| Feature | ソース |
+|---|---|
+| 共通ユーティリティ（非 root の `vscode` ユーザー、sudo、各種パッケージ） | `ghcr.io/devcontainers/features/common-utils:2` |
+| GitHub CLI | `ghcr.io/devcontainers/features/github-cli:1` |
+| Claude Code CLI | `ghcr.io/anthropics/devcontainer-features/claude-code:1` |
 
-| モード | 説明 | ユースケース |
-|---|---|---|
-| `strict`（デフォルト） | 許可リストのみ（GitHub, npm, Anthropic API, GCS） | 実装、テスト、リファクタリング |
-| `open` | 全送信 HTTPS/HTTP を許可 | Web 検索が必要なタスク |
+Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features 側、という方針）。別の エージェント CLI（Codex / Cursor 等）を追加したい場合は、上流の Feature か、`./.devcontainer/<feature-id>/` 配下のローカル Feature を `devcontainer.json` の `features` に追記してください。
 
-### ホスト連携
+### 初回セットアップ
 
-- **Git author 情報:** 起動スクリプト（`scripts/claude-start.sh`）がホストの `git config` から `user.name` / `user.email` を読み取り、環境変数で渡します。標準・XDG・Nix/home-manager どのレイアウトでも動作します。
-- **SSH・GitHub CLI 認証（opt-in）:** オーバーライドファイル `compose.claude.auth.yml` を追加すると `~/.ssh` と `~/.config/gh` を read-only マウントします。SSH 経由の `git push`/`pull` や `gh` CLI 操作（PR 作成、Issue 管理等）に必要です。
+1. **コンテナを起動** — VS Code の「Reopen in Container」、もしくはヘッドレスに `devcontainer up --workspace-folder .`
+2. **認証**（devcontainer ID ごとに 1 回のみ。ホストから bind mount せず、名前付きボリュームに永続化）:
+   - **Claude Code**: そのままエージェントを起動すれば、初回はインラインでログインフローが表示されます。`/login` を CLI 引数で渡さないこと — それはアクティブセッション用のスラッシュコマンドで、ホストシェルから使うとフローが二重に起動します。
+     ```bash
+     devcontainer exec --workspace-folder . claude --dangerously-skip-permissions
+     ```
+   - **GitHub CLI** — 以下のいずれか:
+     - **Web フロー**（対話。OAuth スコープはログイン時に選択）:
+       ```bash
+       devcontainer exec --workspace-folder . gh auth login --hostname github.com --git-protocol https --web
+       ```
+     - **ホストのトークンを流し込む**（例: `gh auth token` の出力）:
+       ```bash
+       devcontainer exec --workspace-folder . --remote-env GH_TOKEN_INPUT=$GH_TOKEN \
+         sh -c 'printf "%s\n" "$GH_TOKEN_INPUT" | env -u GH_TOKEN gh auth login --hostname github.com --with-token'
+       ```
+     - **スコープ限定 PAT**（自律実行向けに推奨） — 下記「GitHub 権限の制限（PAT）」を参照。
+   認証情報は `claude-config-${devcontainerId}` / `gh-config-${devcontainerId}` ボリュームに格納され、`--remove-existing-container` での再ビルド後も残ります。
 
-### 認証トークンの初回セットアップ
+### 動作モード
 
-コンテナ内で Claude Code と gh CLI を使うには、ホスト側で認証トークンを環境変数に設定しておく必要があります。
+- **デフォルト（egress 開放）** — 送信トラフィックは制限しません。ホストの認証情報は bind mount せず（Claude / `gh` の認証はコンテナスコープのボリュームに格納）、ホストの Docker ソケットも露出しません。`--dangerously-skip-permissions` に対する防御面は「非 root の `vscode` ユーザー」「ワークスペース限定マウント」「コンテナスコープの認証ボリューム」の 3 点です。
+- **隔離モード（任意）** — より厳格なサンドボックスにしたい場合は、egress 不可の Docker ネットワークを作成しコンテナをそこに接続します:
+  ```bash
+  docker network create --internal agent-internal
+  ```
+  ローカルオーバーライド（例: `.devcontainer/devcontainer.local.json`）に `"runArgs": ["--network=agent-internal"]` を追加します。完全に外向き通信が遮断されるため、切り替え前に依存（`pnpm install` 等）を解決しておき、エージェントが API アクセスを要する場合は別途プロキシサイドカーを用意してください。
 
-**1. Claude Code OAuth トークン**
+### GitHub 権限の制限（PAT）
 
-Max サブスクリプション枠で動作する長期トークンを発行します（有効期限 1 年）。
+Claude Code を `--dangerously-skip-permissions` で動かすと、保存された `gh` トークンのスコープをそのまま引き継ぎます。爆発半径を絞るため、普段使いの `$GH_TOKEN` ではなく専用 PAT をボリュームに seed することを推奨します。
 
-> **注意:** `ANTHROPIC_API_KEY` は API 従量課金用です。Max 枠を使う場合は `CLAUDE_CODE_OAUTH_TOKEN` を設定してください。
+**手順:**
 
-```bash
-# トークンを発行
-claude setup-token
+1. GitHub で PAT を発行:
+   - **Fine-grained**（爆発半径を最小化したい場合に推奨） — 対象リポジトリと最小権限を下表から選択。
+   - **Classic** — 必要なスコープが最小限になるよう設定（例: `repo` のみ）。`gh` のサブコマンドが fine-grained でまだ未対応な場合のフォールバック。
+2. スコープが累積しないよう既存認証をログアウト:
+   ```bash
+   devcontainer exec --workspace-folder . gh auth logout --hostname github.com
+   ```
+3. 新しい PAT をボリュームに流し込む（値がシェル履歴に残らないよう先頭にスペースを置くか、ファイルから読み出す）:
+   ```bash
+    GH_PAT='github_pat_xxx' devcontainer exec --workspace-folder . --remote-env GH_TOKEN_INPUT=$GH_PAT \
+      sh -c 'printf "%s\n" "$GH_TOKEN_INPUT" | env -u GH_TOKEN gh auth login --hostname github.com --with-token'
+   unset GH_PAT
+   ```
+   トークンファイル経由:
+   ```bash
+   devcontainer exec --workspace-folder . --remote-env GH_TOKEN_INPUT="$(cat ~/.config/agent-gh-pat)" \
+     sh -c 'printf "%s\n" "$GH_TOKEN_INPUT" | env -u GH_TOKEN gh auth login --hostname github.com --with-token'
+   ```
+4. 付与されたスコープを確認:
+   ```bash
+   devcontainer exec --workspace-folder . gh auth status
+   devcontainer exec --workspace-folder . sh -c '
+     gh auth token | xargs -I{} curl -sI -H "Authorization: token {}" https://api.github.com/user \
+       | grep -iE "x-oauth-scopes|x-accepted"
+   '
+   ```
+   Classic PAT は `x-oauth-scopes` で付与スコープが返ります。Fine-grained PAT はここが空になるため、PAT 設定画面のリソース権限を直接確認してください。
 
-# ~/.config/claude-code/env に追記
-echo 'export CLAUDE_CODE_OAUTH_TOKEN=<発行されたトークン>' >> ~/.config/claude-code/env
-```
+**最小権限の目安（fine-grained）:**
 
-**2. GitHub CLI トークン**
+| Claude にさせたい操作 | 権限 |
+|---|---|
+| Issue / PR / リポジトリメタデータの読み取り | `Issues: Read`, `Pull requests: Read`, `Metadata: Read` |
+| PR へのコメント / オープン / クローズ | `+ Pull requests: Write`, `Issues: Write` |
+| HTTPS `git push` / コミット | `+ Contents: Write`（リポジトリスコープ） |
+| GitHub Actions の読み取り / dispatch | `+ Actions: Read`（dispatch が必要なら `Write`） |
+| リポジトリ作成 / 設定変更 | `+ Administration: Write`（organization では承認要の場合あり） |
 
-macOS では gh CLI が Keychain にトークンを保存するため、コンテナからは参照できません。環境変数で渡します。
+**注意 / ハマりどころ:**
 
-```bash
-# トークンを取得
-gh auth token
+- Fine-grained PAT は `gh` の一部サブコマンドにまだ未対応です。403 や「PAT not supported」が返るときは最小スコープの Classic PAT にフォールバックしてください。
+- トークンはボリューム内の `~/.config/gh/hosts.yml` に格納されます。コンテナ内でシェルが取れる人物は値を読めるため、コンテナの侵害＝トークンのスコープ範囲が侵害された、と見なしてください。
+- ローテーションは手順 2 + 3 の繰り返しで OK（ボリュームを作り直す必要はありません）。
 
-# ~/.config/claude-code/env に追記
-echo 'export GH_TOKEN=<取得したトークン>' >> ~/.config/claude-code/env
-```
+### その他のメモ
 
-**3. シェルへの反映**
-
-```bash
-source ~/.config/claude-code/env
-```
-
-`scripts/claude-start.sh` 経由で起動すると、ホストの環境変数が自動で Docker Compose に渡されます。
-
-### 起動方法
-
-```bash
-# 起動（strict ファイアウォール）
-scripts/claude-start.sh up -d
-
-# 起動（HTTPS open）
-FIREWALL_MODE=open scripts/claude-start.sh up -d
-
-# SSH・GitHub CLI 認証付きで起動
-scripts/claude-start.sh -f compose.claude.auth.yml up -d
-
-# Claude Code を実行
-docker compose -f compose.claude.yml exec claude claude --dangerously-skip-permissions
-
-# 停止
-docker compose -f compose.claude.yml down
-```
+- Feature の更新を取り込む: `devcontainer up --workspace-folder . --remove-existing-container`（VS Code なら「Rebuild Container」）。
+- ホストの Docker ソケットは意図的にマウントしていません。エージェントはホストのコンテナを操作できません。
 
 ## リリースチェックリスト
 

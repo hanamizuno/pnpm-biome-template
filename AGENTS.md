@@ -7,6 +7,8 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / GitHub CLI）を Dev Container Features 経由で重ねて注入する実行環境も兼ねます。
+
 ## 開発コマンド
 
 ### 基本的なコマンド
@@ -76,6 +78,7 @@ pnpm update
 │   └── main.bench.ts        # ベンチマークファイル
 ├── package.json             # プロジェクト設定・依存関係
 ├── pnpm-lock.yaml           # 依存関係のロックファイル
+├── pnpm-workspace.yaml      # pnpm 設定（allowBuilds 等）
 ├── tsconfig.json            # TypeScript設定
 ├── biome.json               # Biome（フォーマッター・リンター）設定
 ├── vitest.config.ts         # vitest設定
@@ -87,6 +90,11 @@ pnpm update
 ├── .pre-commit-config.yaml  # pre-commit hooks設定
 ├── .secretlintrc.json       # secretlint設定
 ├── .zizmor.yml              # GitHub Actionsセキュリティ設定
+├── Dockerfile               # マルチステージ（dev / prod / devcontainer）
+├── compose.yml              # 本番用 Docker Compose
+├── compose.dev.yml          # 開発用 Docker Compose
+├── .devcontainer/
+│   └── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
 ├── .github/
 │   └── workflows/           # GitHub Actions CI/CD
 │       ├── lint.yml          # リンターとフォーマットチェック
