@@ -10,15 +10,15 @@
   "remoteUser": "vscode",
   "containerUser": "vscode",
   "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
+    "ghcr.io/devcontainers/features/common-utils@sha256:dbf431d6b42d55cde50fa1df75c7f7c3999a90cde6d73f7a7071174b3c3d0cc4": {
       "username": "vscode",
       "configureZshAsDefaultShell": false,
       "installOhMyZsh": false,
       "installOhMyZshConfig": false,
       "upgradePackages": false
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+    "ghcr.io/devcontainers/features/github-cli@sha256:d22f50b70ed75339b4eed1ba9ecde3a1791f90e88d37936517e3bace0bbad671": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code@sha256:cfc2e7d3e9fd3b9b01f8d5cb158508a884c8c0ede2e23ed10f32dea5d4ffe69a": {}
   },
   "overrideFeatureInstallOrder": [
     "ghcr.io/devcontainers/features/common-utils",
@@ -36,7 +36,6 @@
   },
   "waitFor": "postCreateCommand",
   "postCreateCommand": "pnpm install --frozen-lockfile",
-  "postStartCommand": "test -d node_modules || pnpm install --frozen-lockfile",
   "userEnvProbe": "loginInteractiveShell",
   "overrideCommand": true,
   "customizations": {

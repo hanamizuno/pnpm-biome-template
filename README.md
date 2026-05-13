@@ -1,77 +1,55 @@
 # pnpm + Biome Template
 
-シンプルなNode.js + pnpm + Biomeプロジェクトのテンプレートです。
+シンプルな Node.js + pnpm + Biome プロジェクトのテンプレートです。
 
 ## 機能一覧
 
-- TypeScript によるセキュアな開発環境
+- TypeScript による型安全な開発環境
 - Biome による高速なフォーマット・リント
-- テスト・ベンチマークの実行基盤（vitest）
-- カバレッジレポート付きテスト
-- pre-commit hooks による品質保証
-- GitHub Actions による CI/CD
-- シークレットスキャンによる機密情報漏洩防止
-- 依存関係の自動更新
-- VS Code Dev Containers: `.devcontainer/devcontainer.json` で AI エージェントツールチェーン（Claude Code CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) としてプロジェクト環境に重ねて注入。専用 Dockerfile やオーバーライドは不要。
+- テスト・ベンチマーク・カバレッジ計測（vitest, しきい値 80%）
+- pre-commit hooks による品質保証（biome / typecheck / secretlint）
+- GitHub Actions による CI（Node 24/25 マトリクス、Actions と Features を sha256 固定、依存自動更新）
+- シークレットスキャン（secretlint）
+- VS Code Dev Containers: AI エージェントツールチェーン（Claude Code CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) として重ねて注入
 
 ## セットアップ
-
-[Node.js](https://nodejs.org/) をインストールし、[corepack](https://nodejs.org/api/corepack.html) で pnpm を有効化してください。
 
 ```bash
 corepack enable
 pnpm install
 ```
 
-### pre-commit hooks の設定（任意）
+`pnpm` は `package.json` の `packageManager` フィールド経由で corepack が自動的に正しいバージョンを使用します。
 
-[prek](https://github.com/j178/prek)
-を[インストール](https://github.com/j178/prek?tab=readme-ov-file#installation)した後：
+### pre-commit hooks（任意）
+
+[prek](https://github.com/j178/prek) を[インストール](https://github.com/j178/prek?tab=readme-ov-file#installation)した後：
 
 ```bash
 prek install
 ```
 
-## 使い方
+## 主なコマンド
 
 ```bash
-# 開発サーバーの起動
-pnpm dev
-
-# テストの実行
-pnpm test
-
-# テスト実行（カバレッジレポート付き）
-pnpm test:cov
-
-# ベンチマークの実行
-pnpm bench
-
-# コードのフォーマット
-pnpm fmt
-
-# リントの実行
-pnpm lint
-
-# 型チェック・フォーマット・リント一括実行
-pnpm check
-
-# リリース前チェック（フォーマット・リント・型チェック・テスト）
-pnpm release-check
-
-# シークレットスキャン
-pnpm scan:secrets
-
-# ビルド（dist/ に出力）
-pnpm build
-
-# ビルド成果物を実行
-pnpm start
+pnpm dev            # tsx --watch で開発実行
+pnpm test           # テスト
+pnpm test:cov       # カバレッジ計測
+pnpm bench          # ベンチマーク
+pnpm fmt            # フォーマット適用
+pnpm lint           # リント
+pnpm check          # biome check + typecheck
+pnpm release-check  # CI 相当の一括チェック（biome ci + typecheck + test）
+pnpm scan:secrets   # シークレット検出
+pnpm build          # tsc で dist/ に出力
+pnpm start          # node dist/main.js
 ```
+
+詳細は [AGENTS.md](AGENTS.md) を参照。
 
 ## プロジェクト構造
 
-詳細は [AGENTS.md](AGENTS.md) を参照。
+ディレクトリ構成・設定ファイルの詳細は [AGENTS.md](AGENTS.md) を参照してください。
 
 ## AI Agent Dev Container
 
@@ -81,11 +59,11 @@ Dev Container は AI コーディングエージェント（Claude Code 等）�
 
 | Feature | ソース |
 |---|---|
-| 共通ユーティリティ（非 root の `vscode` ユーザー、sudo、各種パッケージ） | `ghcr.io/devcontainers/features/common-utils:2` |
-| GitHub CLI | `ghcr.io/devcontainers/features/github-cli:1` |
-| Claude Code CLI | `ghcr.io/anthropics/devcontainer-features/claude-code:1` |
+| 共通ユーティリティ（非 root の `vscode` ユーザー、sudo、各種パッケージ） | `ghcr.io/devcontainers/features/common-utils` |
+| GitHub CLI | `ghcr.io/devcontainers/features/github-cli` |
+| Claude Code CLI | `ghcr.io/anthropics/devcontainer-features/claude-code` |
 
-Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features 側、という方針）。別の エージェント CLI（Codex / Cursor 等）を追加したい場合は、上流の Feature か、`./.devcontainer/<feature-id>/` 配下のローカル Feature を `devcontainer.json` の `features` に追記してください。
+各 Feature は再現性のため `.devcontainer/devcontainer.json` で `sha256` digest 固定されています。Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features 側、という方針）。別の エージェント CLI（Codex / Cursor 等）を追加したい場合は、上流の Feature か、`./.devcontainer/<feature-id>/` 配下のローカル Feature を `devcontainer.json` の `features` に追記してください。
 
 ### 初回セットアップ
 
@@ -171,6 +149,10 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 
 - Feature の更新を取り込む: `devcontainer up --workspace-folder . --remove-existing-container`（VS Code なら「Rebuild Container」）。
 - ホストの Docker ソケットは意図的にマウントしていません。エージェントはホストのコンテナを操作できません。
+
+## コントリビューション
+
+[CONTRIBUTING.md](CONTRIBUTING.md) と [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) を参照してください。脆弱性報告は [SECURITY.md](SECURITY.md) の手順に従ってください。
 
 ## リリースチェックリスト
 

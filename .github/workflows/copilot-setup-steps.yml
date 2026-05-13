@@ -1,5 +1,9 @@
 name: "Copilot Setup Steps"
 
+# GitHub Copilot 用環境セットアップの妥当性確認。
+# 実際に Copilot が参照する手順とほぼ同等のステップを走らせ、
+# install / lint / typecheck / test が緑になることを保証する。
+
 on:
   workflow_dispatch:
   push:
@@ -12,9 +16,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -28,8 +37,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Smoke check (lint + typecheck + test)
+        run: pnpm release-check

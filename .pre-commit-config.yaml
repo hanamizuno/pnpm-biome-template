@@ -1,24 +1,22 @@
 repos:
   - repo: local
     hooks:
-      - id: biome-format
-        name: biome format
-        entry: pnpm biome format --check
+      - id: biome-check
+        name: biome check (staged)
+        # staged ファイルだけにフォーマット + lint を当てる
+        entry: pnpm biome check --no-errors-on-unmatched
         language: system
-        pass_filenames: false
-      - id: biome-lint
-        name: biome lint
-        entry: pnpm biome lint
-        language: system
-        pass_filenames: false
+        types_or: [ts, tsx, javascript, jsx, json, jsonc]
+        pass_filenames: true
       - id: typecheck
         name: tsc --noEmit
+        # TypeScript の型検査はプロジェクト全体で必要
         entry: pnpm typecheck
         language: system
         pass_filenames: false
         files: \.(ts|tsx)$
       - id: secretlint
-        name: secretlint
-        entry: pnpm exec secretlint
+        name: secretlint (staged)
+        entry: pnpm exec secretlint --no-color
         language: system
         pass_filenames: true

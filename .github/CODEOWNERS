@@ -1,0 +1,6 @@
+# テンプレート利用時はオーナー名を実在の GitHub ユーザー / チームに置き換えてください。
+# 例: * @your-handle  /.github/ @your-org/devops
+#
+# 参考: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @REPLACE-ME
