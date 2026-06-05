@@ -69,8 +69,8 @@ RUN apt-get update \
        > /usr/local/bin/chromium-no-sandbox \
     && chmod +x /usr/local/bin/chromium-no-sandbox
 
-RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config/gh \
-    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config \
+RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config/gh \
+    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config \
     && ln -sf /home/vscode/.claude/.claude.json /home/vscode/.claude.json \
     && chown -h vscode:vscode /home/vscode/.claude.json
 

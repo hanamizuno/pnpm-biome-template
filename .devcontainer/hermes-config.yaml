@@ -1,4 +1,0 @@
-# devcontainer 自体が自律エージェント実行の隔離境界。
-# Hermes がブロッキングなしで反復できるよう対話的な承認を無効化する。
-approvals:
-  mode: "off"
