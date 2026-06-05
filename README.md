@@ -99,6 +99,17 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
      - **スコープ限定 PAT**（自律実行向けに推奨） — 下記「GitHub 権限の制限（PAT）」を参照。
    認証情報は `claude-config-${devcontainerId}` / `codex-config-${devcontainerId}` / `hermes-config-${devcontainerId}` / `gh-config-${devcontainerId}` ボリュームに格納され、`--remove-existing-container` での再ビルド後も残ります。
 
+### ホスト設定の継承
+
+コンテナの作成/起動のたびに、`.devcontainer/initialize.sh`（`initializeCommand`、ホスト側で実行）が選択されたホスト設定を `.devcontainer/` 配下の git-ignore されたファイルへステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映します:
+
+- **グローバル gitignore** — `core.excludesFile` → `~/.config/git/ignore`（XDG）→ `~/.gitignore` の順で解決し、シンボリックリンクを実体化（例: Nix / home-manager のターゲット）した上で `.devcontainer/host-gitignore` としてステージングし、コンテナ内の `~/.config/git/ignore`（git の XDG デフォルト。`git config` には触れない）へコピーします。起動ごとに上書きされるため、ホストが常に正です。
+- **Claude Code の settings + statusline** — `~/.claude/settings.json` はホストのホームパスを `/home/vscode` に書き換えた上で（`statusLine` コマンド等が動き続けるように）ステージングし、コンテナ内の `~/.claude/settings.json` へ `jq` で **deep-merge** します（キー単位でホスト優先。コンテナ内でのプラグイン有効化などコンテナ専用キーは残る）。`~/.claude/statusline-command.sh` も併せてコピーします。認証・状態（`~/.claude.json`、`~/.claude/.credentials.json`）は意図的にステージング**しません** — 認証はコンテナスコープのボリュームに留まります。
+
+ホスト側にファイルが存在しない場合、そのステップは no-op となりコンテナは通常どおり起動します。
+
+> **Windows ホスト:** `initializeCommand` はホスト上で bash スクリプトを実行するため、ネイティブ Windows では Git Bash / WSL が `PATH` 上に必要です — 無い場合は同期がスキップされますが、コンテナ自体は起動します。
+
 ### 見た目のデバッグ（Chrome DevTools MCP）
 
 エージェントは [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 経由でコンテナ内の headless Chromium を操作し、`pnpm dev` で立てた開発サーバーの画面をスクリーンショット・コンソールログ・ネットワークリクエストで確認できます。「この画面のレイアウト崩れを直して」のような依頼に対して、エージェントが自分で描画結果を見ながら修正→確認のループを回せます。

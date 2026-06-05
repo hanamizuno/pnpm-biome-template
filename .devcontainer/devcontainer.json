@@ -43,7 +43,9 @@
     "NOUS_PORTAL_API_KEY": "${localEnv:NOUS_PORTAL_API_KEY}"
   },
   "waitFor": "postCreateCommand",
+  "initializeCommand": ".devcontainer/initialize.sh",
   "postCreateCommand": ".devcontainer/post-create.sh",
+  "postStartCommand": ".devcontainer/post-start.sh",
   "userEnvProbe": "loginInteractiveShell",
   "overrideCommand": true,
   "customizations": {

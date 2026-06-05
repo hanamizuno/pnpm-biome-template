@@ -143,3 +143,7 @@ dist
 # Claude Code (ローカル専用設定)
 .claude/settings.local.json
 
+# devcontainer 用にステージングされるホスト設定 (.devcontainer/initialize.sh 参照)
+.devcontainer/host-gitignore
+.devcontainer/host-claude/
+
