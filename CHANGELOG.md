@@ -8,6 +8,7 @@
 
 ### Added
 
+- Dev Container に Chrome DevTools MCP + headless Chromium を追加（エージェントによる画面の見た目デバッグ用。`--no-sandbox` ラッパー経由で起動、日本語フォント同梱、Claude Code / Codex に登録）
 - `tsconfig.build.json` を分離（テスト/ベンチを除外したビルド用設定）
 - `package.json` に `engines.node`、`packageManager`、`build`、`start`、`fmt:check` を追加
 - `.editorconfig` / `.npmrc` / `.nvmrc` / `.secretlintignore` を追加

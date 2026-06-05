@@ -11,6 +11,7 @@
 - GitHub Actions による CI（Node 24/25 マトリクス、Actions と Features を sha256 固定、依存自動更新）
 - シークレットスキャン（secretlint）
 - VS Code Dev Containers: AI エージェントツールチェーン（Claude Code CLI、Codex CLI、Hermes Agent、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで重ねて注入
+- Chrome DevTools MCP + headless Chromium: エージェントがコンテナ内で画面の見た目をデバッグ（スクリーンショット・コンソール・ネットワーク確認）
 
 ## セットアップ
 
@@ -65,6 +66,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 | Codex CLI | `.devcontainer/post-create.sh` が `npm install -g @openai/codex` でインストール |
 | Codex プラグイン（Claude Code 用） | `.devcontainer/post-create.sh` が `claude plugin install codex@openai-codex` でインストール。Claude Code から必要に応じて Codex に委譲できる（`codex-rescue` サブエージェント + `/codex` スキル） |
 | Hermes Agent | `.devcontainer/post-create.sh` が上流 `NousResearch/hermes-agent` のユーザー単位 `uv` インストーラーでインストール |
+| Chrome DevTools MCP（見た目のデバッグ用） | `Dockerfile` の `devcontainer` ステージが headless Chromium + 日本語フォントを導入し、`.devcontainer/post-create.sh` が `chrome-devtools-mcp` をインストールして Claude Code に登録（Codex には `.devcontainer/codex-config.toml` で登録） |
 
 各 Feature は再現性のため `.devcontainer/devcontainer.json` で `sha256` digest 固定されています。Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features / post-create 側、という方針）。別の エージェント CLI（Cursor 等）を追加したい場合は、上流の Feature、`./.devcontainer/<feature-id>/` 配下のローカル Feature、もしくは `.devcontainer/post-create.sh` への冪等なインストールステップのいずれかを追記してください。
 
@@ -96,6 +98,20 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
        ```
      - **スコープ限定 PAT**（自律実行向けに推奨） — 下記「GitHub 権限の制限（PAT）」を参照。
    認証情報は `claude-config-${devcontainerId}` / `codex-config-${devcontainerId}` / `hermes-config-${devcontainerId}` / `gh-config-${devcontainerId}` ボリュームに格納され、`--remove-existing-container` での再ビルド後も残ります。
+
+### 見た目のデバッグ（Chrome DevTools MCP）
+
+エージェントは [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 経由でコンテナ内の headless Chromium を操作し、`pnpm dev` で立てた開発サーバーの画面をスクリーンショット・コンソールログ・ネットワークリクエストで確認できます。「この画面のレイアウト崩れを直して」のような依頼に対して、エージェントが自分で描画結果を見ながら修正→確認のループを回せます。
+
+- **Claude Code**: `post-create.sh` が `claude mcp add chrome-devtools` で登録します（`~/.claude` ボリュームに永続化）。既存コンテナにはリビルド（post-create 再実行）で反映されます。
+- **Codex**: `.devcontainer/codex-config.toml` の `[mcp_servers.chrome-devtools]` で登録します。初回作成時にのみボリュームへコピーされる設定のため、既存の `~/.codex/config.toml` には同セクションを手動で追記してください。
+- **Hermes**: MCP 連携は未設定です（必要なら `~/.hermes/config.yaml` で各自設定）。
+
+技術メモ:
+
+- Chromium は Debian の `chromium` パッケージを使用します（Apple Silicon ホストの arm64 コンテナでも動作。Google Chrome 公式 deb は amd64 のみのため不採用）。日本語の描画用に `fonts-noto-cjk` を同梱しています。
+- コンテナ内ではカーネルサンドボックスが使えないため、`--no-sandbox` を付与する `/usr/local/bin/chromium-no-sandbox` ラッパー経由で起動します。信頼できないサイトの閲覧には使わず、ローカル開発サーバーの確認用としてください（コンテナ自体が隔離境界、という本テンプレートの方針の範囲内です）。
+- MCP は `--isolated`（一時プロファイル）+ `--headless` で起動するため、表示用ディスプレイは不要です。利用統計の外部送信は `--no-usage-statistics` で無効化しています（隔離モードとの整合のため）。
 
 ### 動作モード
 

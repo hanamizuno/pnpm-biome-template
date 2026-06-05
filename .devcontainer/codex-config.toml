@@ -11,3 +11,9 @@ network_access = true
 
 [projects."/workspace"]
 trust_level = "trusted"
+
+# コンテナ内の headless Chromium で画面の見た目をデバッグするための Chrome DevTools MCP。
+# 本体は post-create.sh でグローバルインストール、Chromium は Dockerfile の devcontainer ステージで導入。
+[mcp_servers.chrome-devtools]
+command = "chrome-devtools-mcp"
+args = ["--headless", "--isolated", "--no-usage-statistics", "--executablePath", "/usr/local/bin/chromium-no-sandbox"]

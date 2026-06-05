@@ -21,6 +21,21 @@ if ! claude plugin list 2>/dev/null | grep -q 'codex@openai-codex'; then
   claude plugin install codex@openai-codex
 fi
 
+# Chrome DevTools MCP をグローバルインストールし、コンテナ内の headless Chromium で
+# 画面の見た目（スクリーンショット・コンソール・ネットワーク）をデバッグできるようにする。
+# npx での都度取得にしないのは、隔離モード（egress 遮断）でも動かせるようにするため。
+if ! command -v chrome-devtools-mcp >/dev/null 2>&1; then
+  sudo npm install -g chrome-devtools-mcp
+fi
+
+# Claude Code に登録。~/.claude ボリュームに永続化されるため、登録済みならスキップして冪等に保つ。
+# Chromium 本体は Dockerfile の devcontainer ステージで導入済み（--no-sandbox ラッパー経由で起動）。
+if ! claude mcp get chrome-devtools >/dev/null 2>&1; then
+  claude mcp add chrome-devtools -- chrome-devtools-mcp \
+    --headless --isolated --no-usage-statistics \
+    --executablePath /usr/local/bin/chromium-no-sandbox
+fi
+
 if ! command -v hermes >/dev/null 2>&1; then
   curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
 fi

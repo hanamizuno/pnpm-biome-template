@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
-コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / Codex / Hermes / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / Codex / Hermes / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。
 
 ## 開発コマンド
 
@@ -106,8 +106,8 @@ pnpm update
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .devcontainer/
 │   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
-│   ├── post-create.sh       # post-create フック（pnpm install + Codex / Hermes のインストール）
-│   ├── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー）
+│   ├── post-create.sh       # post-create フック（pnpm install + Codex / Hermes / Chrome DevTools MCP のセットアップ）
+│   ├── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
 │   └── hermes-config.yaml   # Hermes Agent 初期設定（永続化される ~/.hermes ボリュームへコピー）
 └── .github/
     ├── dependabot.yml       # GitHub Actions の自動更新

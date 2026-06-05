@@ -57,6 +57,18 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && corepack enable \
     && corepack prepare pnpm@11 --activate
 
+# chrome-devtools-mcp 用の headless Chromium と描画フォント（日本語含む）。
+# コンテナ内ではカーネルサンドボックスを利用できないため --no-sandbox を付与する
+# ラッパーを用意し、MCP からは executablePath でこれを指定する
+# （--disable-dev-shm-usage は /dev/shm が小さい Docker 環境でのクラッシュ対策）。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium fonts-noto-cjk fonts-liberation \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && printf '#!/bin/sh\nexec /usr/bin/chromium --no-sandbox --disable-dev-shm-usage "$@"\n' \
+       > /usr/local/bin/chromium-no-sandbox \
+    && chmod +x /usr/local/bin/chromium-no-sandbox
+
 RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config/gh \
     && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config \
     && ln -sf /home/vscode/.claude/.claude.json /home/vscode/.claude.json \
