@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
-コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / GitHub CLI）を Dev Container Features 経由で重ねて注入する実行環境も兼ねます。
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / Codex / Hermes / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。
 
 ## 開発コマンド
 
@@ -105,7 +105,10 @@ pnpm update
 ├── compose.yml              # 本番用 Docker Compose
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .devcontainer/
-│   └── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
+│   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
+│   ├── post-create.sh       # post-create フック（pnpm install + Codex / Hermes のインストール）
+│   ├── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー）
+│   └── hermes-config.yaml   # Hermes Agent 初期設定（永続化される ~/.hermes ボリュームへコピー）
 └── .github/
     ├── dependabot.yml       # GitHub Actions の自動更新
     └── workflows/           # GitHub Actions CI/CD

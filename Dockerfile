@@ -57,8 +57,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && corepack enable \
     && corepack prepare pnpm@11 --activate
 
-RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.config/gh \
-    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.config \
+RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config/gh \
+    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.hermes /home/vscode/.config \
     && ln -sf /home/vscode/.claude/.claude.json /home/vscode/.claude.json \
     && chown -h vscode:vscode /home/vscode/.claude.json
 
