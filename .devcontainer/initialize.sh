@@ -50,4 +50,20 @@ if [ -f "$HOME/.claude/settings.json" ] || [ -f "$HOME/.claude/statusline-comman
   fi
 fi
 
+# --- Git identity (user.name / user.email) -----------------------------------
+# ファイルではなく値を読むことで includes / conditional includes を解決させ、
+# credential helper などホスト専用の設定は持ち込まずに identity だけを継承する。
+GITUSER_STAGE=".devcontainer/host-gituser"
+
+rm -f "$GITUSER_STAGE"
+
+GIT_NAME="$(git config --global --get user.name 2>/dev/null)"
+GIT_EMAIL="$(git config --global --get user.email 2>/dev/null)"
+if [ -n "$GIT_NAME" ]; then
+  git config --file "$GITUSER_STAGE" user.name "$GIT_NAME" 2>/dev/null || rm -f "$GITUSER_STAGE"
+fi
+if [ -n "$GIT_EMAIL" ]; then
+  git config --file "$GITUSER_STAGE" user.email "$GIT_EMAIL" 2>/dev/null || rm -f "$GITUSER_STAGE"
+fi
+
 exit 0

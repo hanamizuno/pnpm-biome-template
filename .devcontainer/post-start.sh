@@ -10,6 +10,16 @@ if [ -f .devcontainer/host-gitignore ]; then
   cp .devcontainer/host-gitignore "$HOME/.config/git/ignore"
 fi
 
+# initialize.sh がステージングしたホストの git identity を反映する。
+# `git config --global` で書き込むため、コンテナ側の git config（Features が
+# 書く safe.directory 等）には触れない。起動ごとに上書きされ、ホストが正。
+if [ -f .devcontainer/host-gituser ]; then
+  name="$(git config --file .devcontainer/host-gituser --get user.name 2>/dev/null || true)"
+  email="$(git config --file .devcontainer/host-gituser --get user.email 2>/dev/null || true)"
+  if [ -n "$name" ]; then git config --global user.name "$name"; fi
+  if [ -n "$email" ]; then git config --global user.email "$email"; fi
+fi
+
 # initialize.sh がステージングした Claude Code 設定を反映する。settings.json は
 # 上書きではなく deep-merge（キー単位でホスト優先）にする。コンテナ内では
 # Claude Code 自身がこのファイルへ書き込むため、コンテナ専用のキー（プラグイン

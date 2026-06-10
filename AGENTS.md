@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
-コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / Codex / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore と Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container（`.devcontainer/devcontainer.json`）は AI エージェント CLI（Claude Code / Codex / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore、git identity（user.name / user.email）、Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。
 
 ## 開発コマンド
 
@@ -106,7 +106,7 @@ pnpm update
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .devcontainer/
 │   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
-│   ├── initialize.sh        # initialize フック（ホスト側で実行。グローバル gitignore / Claude Code 設定をステージング）
+│   ├── initialize.sh        # initialize フック（ホスト側で実行。グローバル gitignore / git identity / Claude Code 設定をステージング）
 │   ├── post-create.sh       # post-create フック（pnpm install + Codex / Chrome DevTools MCP のセットアップ）
 │   ├── post-start.sh        # post-start フック（ステージングされたホスト設定をコンテナ内へ反映）
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）

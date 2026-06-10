@@ -99,6 +99,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 コンテナの作成/起動のたびに、`.devcontainer/initialize.sh`（`initializeCommand`、ホスト側で実行）が選択されたホスト設定を `.devcontainer/` 配下の git-ignore されたファイルへステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映します:
 
 - **グローバル gitignore** — `core.excludesFile` → `~/.config/git/ignore`（XDG）→ `~/.gitignore` の順で解決し、シンボリックリンクを実体化（例: Nix / home-manager のターゲット）した上で `.devcontainer/host-gitignore` としてステージングし、コンテナ内の `~/.config/git/ignore`（git の XDG デフォルト。`git config` には触れない）へコピーします。起動ごとに上書きされるため、ホストが常に正です。
+- **Git identity** — `user.name` / `user.email` をホストのグローバル git config から読み取り（ファイルではなく値を読むため includes が解決され、credential helper などホスト専用設定は持ち込まれない）、`.devcontainer/host-gituser` としてステージングし、起動ごとに `git config --global` でコンテナ内へ反映します。ホストで未設定のキーには触れません。
 - **Claude Code の settings + statusline** — `~/.claude/settings.json` はホストのホームパスを `/home/vscode` に書き換えた上で（`statusLine` コマンド等が動き続けるように）ステージングし、コンテナ内の `~/.claude/settings.json` へ `jq` で **deep-merge** します（キー単位でホスト優先。コンテナ内でのプラグイン有効化などコンテナ専用キーは残る）。`~/.claude/statusline-command.sh` も併せてコピーします。認証・状態（`~/.claude.json`、`~/.claude/.credentials.json`）は意図的にステージング**しません** — 認証はコンテナスコープのボリュームに留まります。
 
 ホスト側にファイルが存在しない場合、そのステップは no-op となりコンテナは通常どおり起動します。

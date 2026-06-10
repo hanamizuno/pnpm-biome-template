@@ -145,5 +145,6 @@ dist
 
 # devcontainer 用にステージングされるホスト設定 (.devcontainer/initialize.sh 参照)
 .devcontainer/host-gitignore
+.devcontainer/host-gituser
 .devcontainer/host-claude/
 
