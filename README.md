@@ -64,4 +64,4 @@ VS Code Dev Container を AI コーディングエージェント（Claude Code 
 
 ## ライセンス
 
-[MIT](LICENSE)
+[MIT](LICENSE)。`LICENSE` 内の `[yyyy] [name of copyright owner]` は派生先で年と著作権者名に置換してください。
