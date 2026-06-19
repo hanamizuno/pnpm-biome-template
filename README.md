@@ -183,10 +183,6 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 - Feature の更新を取り込む: `devcontainer up --workspace-folder . --remove-existing-container`（VS Code なら「Rebuild Container」）。
 - ホストの Docker ソケットは意図的にマウントしていません。エージェントはホストのコンテナを操作できません。
 
-## コントリビューション
-
-[CONTRIBUTING.md](CONTRIBUTING.md) と [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) を参照してください。脆弱性報告は [SECURITY.md](SECURITY.md) の手順に従ってください。
-
 ## リリースチェックリスト
 
 1. `pnpm release-check` を実行してすべてのチェックが通ることを確認
