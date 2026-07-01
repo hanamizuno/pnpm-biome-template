@@ -7,7 +7,7 @@ export default defineConfig({
     restoreMocks: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "lcov"],
       reportsDirectory: "./coverage",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/*.bench.ts"],

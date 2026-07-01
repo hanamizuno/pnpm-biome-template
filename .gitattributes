@@ -1,0 +1,2 @@
+# 改行コードを LF に統一（Windows ホストでの checkout 時の CRLF 混入を防ぐ）
+* text=auto eol=lf
