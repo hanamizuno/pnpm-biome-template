@@ -13,3 +13,7 @@
 ## Requirements
 
 <!-- マージ前に解決すべき依存・前提を箇条書きで。なければ「なし」。 -->
+
+## Related issues
+
+<!-- e.g. Closes #123 -->
