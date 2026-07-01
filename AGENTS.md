@@ -82,6 +82,8 @@ pnpm update
 │   ├── main.ts              # エントリーポイント
 │   ├── main.test.ts         # テストファイル
 │   └── main.bench.ts        # ベンチマークファイル
+├── docs/
+│   └── knowledge/           # OKF v0.1 知識バンドル（architecture / adr / conventions / runbooks / research）
 ├── package.json             # プロジェクト設定・依存関係
 ├── pnpm-lock.yaml           # 依存関係のロックファイル
 ├── pnpm-workspace.yaml      # pnpm 設定（allowBuilds 等）
@@ -95,15 +97,18 @@ pnpm update
 ├── LICENSE                  # MITライセンス
 ├── README.md                # プロジェクト説明
 ├── .editorconfig            # エディタ共通設定
+├── .gitattributes           # 改行コードの統一（LF）
 ├── .npmrc                   # pnpm 挙動設定（engine-strict 等）
 ├── .nvmrc                   # Node.js バージョン固定
 ├── .pre-commit-config.yaml  # pre-commit hooks設定
 ├── .secretlintrc.json       # secretlint設定
 ├── .secretlintignore        # secretlint 除外パターン
-├── .zizmor.yml              # GitHub Actionsセキュリティ設定
-├── Dockerfile               # マルチステージ（dev / builder / prod / devcontainer）
+├── .zizmor.yml              # GitHub Actionsセキュリティ設定（hash-pin ポリシー）
+├── .dockerignore            # Docker ビルドコンテキストの除外
+├── Dockerfile               # マルチステージ（dev / builder / prod / devcontainer）、ベースイメージ digest 固定
 ├── compose.yml              # 本番用 Docker Compose
 ├── compose.dev.yml          # 開発用 Docker Compose
+├── .vscode/                 # VS Code 設定（biome を既定フォーマッタに、保存時に fixAll）
 ├── .devcontainer/
 │   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
 │   ├── initialize.sh        # initialize フック（ホスト側で実行。グローバル gitignore / git identity / Claude Code 設定をステージング）
@@ -111,13 +116,23 @@ pnpm update
 │   ├── post-start.sh        # post-start フック（ステージングされたホスト設定をコンテナ内へ反映）
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
 └── .github/
-    ├── dependabot.yml       # GitHub Actions の自動更新
+    ├── dependabot.yml       # GitHub Actions / Docker / Dev Container の自動更新（7 日 cooldown）
+    ├── labels.yml           # リポジトリラベルの source of truth
+    ├── CODEOWNERS           # コードオーナー（プレースホルダ）
+    ├── copilot-instructions.md  # GitHub Copilot 向けガイド（AGENTS.md へのポインタ）
+    ├── PULL_REQUEST_TEMPLATE.md # PR テンプレート
+    ├── ISSUE_TEMPLATE/      # Issue forms（bug / enhancement / task、blank issue 無効）
+    ├── scripts/
+    │   └── sync-labels.sh   # ラベル同期スクリプト（labels.yml → GitHub）
     └── workflows/           # GitHub Actions CI/CD
         ├── lint.yml          # リンターとフォーマットチェック + secretlint
         ├── test.yml          # テスト実行
-        ├── lint_gha.yml      # GitHub Actions自体のリント
-        ├── security.yml      # 依存関係のセキュリティ監査
+        ├── lint_gha.yml      # GitHub Actions自体のリント（actionlint + zizmor）
+        ├── lint_docker.yml   # Dockerfile のリント（hadolint）
+        ├── security.yml      # セキュリティ監査（pnpm audit + Trivy）
+        ├── sbom.yml          # CycloneDX SBOM 生成
         ├── deps-update.yml   # 依存関係の自動更新
+        ├── labels.yml        # ラベル同期
         └── copilot-setup-steps.yml # GitHub Copilot環境セットアップ
 ```
 
@@ -153,18 +168,23 @@ TypeScript設定：
 
 - **include**: `src/**/*.test.ts`、**benchmark.include**: `src/**/*.bench.ts`
 - **clearMocks / restoreMocks**: 有効
-- **coverage.provider**: v8 / **reporter**: text, html / 80% しきい値
+- **coverage.provider**: v8 / **reporter**: text, html, lcov / 80% しきい値
 
 #### GitHub Actions
 
 継続的インテグレーション：
 
-- **lint.yml**: プッシュ/PR時のコード品質チェック（biome ci + tsc --noEmit）
-- **test.yml**: プッシュ/PR時のテスト実行とカバレッジ計測（PRにカバレッジレポートをコメント）
-- **lint_gha.yml**: Actions自体のセキュリティチェック
-- **security.yml**: 依存関係のセキュリティ監査（毎日実行）
+- **lint.yml**: プッシュ/PR時のコード品質チェック（biome ci + tsc --noEmit + secretlint）
+- **test.yml**: プッシュ/PR時のテスト実行とカバレッジ計測（PRにカバレッジレポートをコメント。fork からの PR はコメントをスキップ）
+- **lint_gha.yml**: Actions 自体のリント（actionlint）とセキュリティチェック（zizmor、バージョン固定）
+- **lint_docker.yml**: Dockerfile のリント（hadolint）
+- **security.yml**: セキュリティ監査（毎日実行。pnpm audit + Trivy、push/cron 時は SARIF を Security タブへ）
+- **sbom.yml**: CycloneDX SBOM の生成（依存関係の変更時、cdxgen）
 - **deps-update.yml**: 依存関係の自動更新（毎週月曜実行、PRを自動作成）
+- **labels.yml**: `.github/labels.yml` から GitHub ラベルを同期
 - **copilot-setup-steps.yml**: GitHub Copilot用の環境セットアップ
+
+共通規約: 全 workflow で top-level `permissions: {}` + job 単位の最小権限、`concurrency`（push/PR 系は PR のみ cancel、ミューテーション系は直列化）、`timeout-minutes`、アクションの commit SHA 固定（`.zizmor.yml` の `hash-pin` ポリシーで強制）。
 
 ### 技術選択
 
@@ -179,8 +199,9 @@ TypeScript設定：
 
 `.pre-commit-config.yaml` で定義されたフック：
 
-- **biome-format**: コミット前にフォーマットチェック
-- **biome-lint**: コミット前にリントチェック
+- **biome-check**: コミット前にフォーマット・リントチェック（staged ファイル対象）
+- **typecheck**: コミット前に型チェック（プロジェクト全体）
+- **secretlint**: コミット前にシークレット検出（staged ファイル対象）
 
 セットアップ:
 [prek をインストール](https://github.com/j178/prek?tab=readme-ov-file#installation)後、`prek install`

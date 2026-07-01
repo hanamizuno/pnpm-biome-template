@@ -50,6 +50,8 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 
 ホスト側にファイルが存在しない場合、そのステップは no-op となりコンテナは通常どおり起動します。
 
+ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。
+
 > **Windows ホスト:** `initializeCommand` はホスト上で bash スクリプトを実行するため、ネイティブ Windows では Git Bash / WSL が `PATH` 上に必要です — 無い場合は同期がスキップされますが、コンテナ自体は起動します。
 
 ## 見た目のデバッグ（Chrome DevTools MCP）
@@ -73,6 +75,25 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
   docker network create --internal agent-internal
   ```
   ローカルオーバーライド（例: `devcontainer.local.json`）に `"runArgs": ["--network=agent-internal"]` を追加します。完全に外向き通信が遮断されるため、切り替え前に依存（`pnpm install` 等）を解決しておき、エージェントが API アクセスを要する場合は別途プロキシサイドカーを用意してください。
+
+## この隔離が担保しない範囲
+
+コンテナは爆発半径を「ホストユーザーが触れるすべて」から「ワークスペース + コンテナスコープの認証ボリューム」まで圧縮しますが、あくまで Linux コンテナであり microVM ではありません。具体的に、このテンプレートは以下を提供**しません**:
+
+- 独立したカーネル（コンテナエスケープにつながるカーネル脆弱性は封じ込められません）
+- 細粒度のネットワーク allow/deny リスト（あるのは上記の `--network=internal` による二値の隔離モードのみ）
+- エージェントセッション内から安全にコンテナをビルド・実行するためのネスト Docker デーモン（ホストの Docker ソケットは意図的にマウントしていません）
+
+これらが必要な場合は、[Docker Sandbox](https://docs.docker.com/ai/sandboxes/)（microVM のカーネル境界、allow/deny ネットワーク、サンドボックスごとの Docker デーモン）のような、より保証の強いサンドボックス内でエージェントを動かし、この devcontainer は内側のワークスペースとして扱ってください。
+
+**ホストの loopback へのアクセスは意図的に開けていません。** `host.docker.internal` はデフォルトでは追加しません — 開けると `0.0.0.0` にバインドされたホストのサービス（ローカル LLM サーバー、開発用 DB、デバッグダッシュボード）がすべてエージェントから見えてしまいます。どうしても必要な場合（例: ローカルホストの OpenAI 互換エンドポイントをエージェントに使わせる）は、プロジェクトのデフォルトではなくローカルオーバーライドとして追加してください:
+
+```jsonc
+// .devcontainer/devcontainer.local.json (ユーザーごとのオーバーライド。コミットしない)
+{ "runArgs": ["--add-host=host.docker.internal:host-gateway"] }
+```
+
+その上でホスト側のサービスを（`127.0.0.1` ではなく）`0.0.0.0` にバインドし、エージェントには `http://host.docker.internal:<port>` を使わせます。
 
 ## GitHub 権限の制限（PAT）
 

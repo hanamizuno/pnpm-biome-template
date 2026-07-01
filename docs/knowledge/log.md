@@ -1,5 +1,9 @@
 # Knowledge Bundle Update Log
 
+## 2026-07-02
+
+* **Add**: [research/](/docs/knowledge/research/index.md) 区画を追加（調査・比較検討のスナップショット置き場）。サンプルとして [research/sample-research.md](/docs/knowledge/research/sample-research.md) を配置。
+
 ## 2026-06-30
 
 * **Bootstrap**: `docs/knowledge/` を OKF v0.1 バンドルのスケルトンとして初期化。

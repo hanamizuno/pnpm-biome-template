@@ -16,6 +16,7 @@ okf_version: "0.1"
 * [adr/](adr/) — Architecture Decision Records (決定とその理由)
 * [conventions/](conventions/) — テスト・エラーハンドリング等のリポジトリ横断の取り決め
 * [runbooks/](runbooks/) — 障害対応や定型運用の手順
+* [research/](research/) — 調査・比較検討のスナップショット
 * [log.md](log.md) — バンドル全体の更新ログ
 
 ## OKF 運用ルール
@@ -43,4 +44,4 @@ timestamp: 2026-06-30T00:00:00Z
 # 本文
 ```
 
-`type` の語彙は意図的に中央集権化されていません。ドメインに合うものを選んでください。読者 (人間とエージェント) は未知の `type` 値を許容することが期待されています。このテンプレートのサンプルでは `Architecture Note` / `ADR` / `Convention` / `Runbook` / `Index` を使っています。
+`type` の語彙は意図的に中央集権化されていません。ドメインに合うものを選んでください。読者 (人間とエージェント) は未知の `type` 値を許容することが期待されています。このテンプレートのサンプルでは `Architecture Note` / `ADR` / `Convention` / `Runbook` / `Reference` / `Index` を使っています。
