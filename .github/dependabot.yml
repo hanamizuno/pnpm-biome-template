@@ -1,13 +1,30 @@
 version: 2
 
-# npm 依存関係は deps-update.yml が pnpm で扱うため、ここでは GitHub Actions のみを扱う
+# npm 依存関係は deps-update.yml が pnpm で扱うため、ここでは扱わない。
+# cooldown はリリース直後の供給チェーン攻撃を避けるための待機期間。
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       gh-actions:
         patterns:
           - "*"
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+  - package-ecosystem: devcontainers
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7

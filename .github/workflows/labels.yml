@@ -17,9 +17,10 @@ on:
 
 permissions: {}
 
+# ラベル変更はミューテーションのため直列化する（途中キャンセルしない）
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   sync:

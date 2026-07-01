@@ -4,11 +4,6 @@
 rules:
   unpinned-uses:
     config:
-      # All actions must be pinned to a commit hash
+      # すべてのアクションを commit hash（docker は digest）で固定する
       policies:
-        "actions/checkout": ref-pin
-        "pnpm/action-setup": ref-pin
-        "actions/setup-node": ref-pin
-        "actions/setup-python": ref-pin
-        "actions/upload-artifact": ref-pin
-        "actions/github-script": ref-pin
+        "*": hash-pin

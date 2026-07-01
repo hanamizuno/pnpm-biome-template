@@ -10,7 +10,7 @@ permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -65,7 +65,8 @@ jobs:
           path: coverage/
 
       - name: Add comment to PR
-        if: github.event_name == 'pull_request' && matrix.node-version == 24
+        # fork からの PR は GITHUB_TOKEN が read-only でコメントできないためスキップ
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && matrix.node-version == 24
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COVERAGE_REPORT: ${{ steps.coverage.outputs.report }}
