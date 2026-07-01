@@ -3,9 +3,11 @@
 .vscode
 .devcontainer
 .claude
+.pnpm-store
 coverage
 node_modules
 dist
+docs
 *.md
 !README.md
 .env
