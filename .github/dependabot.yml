@@ -21,6 +21,12 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # Node のメジャー更新は LTS 方針（.nvmrc / Dockerfile の ARG NODE_VERSION /
+    # ドキュメントとの同時更新が必要）のため手動で行う。digest・マイナー更新は追跡する。
+    ignore:
+      - dependency-name: node
+        update-types:
+          - "version-update:semver-major"
   - package-ecosystem: devcontainers
     directory: /
     schedule:
