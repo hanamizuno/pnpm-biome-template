@@ -145,6 +145,15 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 - トークンはボリューム内の `~/.config/gh/hosts.yml` に格納されます。コンテナ内でシェルが取れる人物は値を読めるため、コンテナの侵害＝トークンのスコープ範囲が侵害された、と見なしてください。
 - ローテーションは手順 2 + 3 の繰り返しで OK（ボリュームを作り直す必要はありません）。
 
+## node_modules と pnpm ストアの分離
+
+`node_modules` にはプラットフォーム固有のネイティブバイナリ（biome / esbuild 等）が入るため、ホスト（例: macOS）とコンテナ（Linux）で同じディレクトリを共有すると、切り替えのたびに再インストールが必要になります。このテンプレートでは:
+
+- **`node_modules`** — named volume（`node-modules-${devcontainerId}`）が bind mount 上のホスト側 `node_modules` をコンテナ内でマスクします。ホスト側はホスト用、コンテナ側は volume 内の Linux 用がそのまま残り、双方の再インストールは不要になります。
+- **pnpm ストア** — `post-create.sh` が `store-dir` を volume（`pnpm-store-${devcontainerId}`、`~/.pnpm-store`）に固定します。未指定だと pnpm はプロジェクトと同じファイルシステムにストアを作るため、ホストの checkout 直下に `.pnpm-store/` が漏れてしまうのを防ぎます。volume なのでリビルド後もダウンロードキャッシュが残ります。
+
+依存をやり直したいときはコンテナ内で `rm -rf node_modules && pnpm install` を実行してください（ホスト側には影響しません）。まっさらにしたい場合は `docker volume rm` で該当 volume を削除してからリビルドします。なお、ストア volume と `node_modules` volume は別マウントのため hardlink は効かず pnpm は自動的に copy にフォールバックします（正しさとキャッシュ維持を優先した割り切りです）。
+
 ## その他のメモ
 
 - Feature の更新を取り込む: `devcontainer up --workspace-folder . --remove-existing-container`（VS Code なら「Rebuild Container」）。

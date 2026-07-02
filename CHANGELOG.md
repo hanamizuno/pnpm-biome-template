@@ -51,6 +51,7 @@
 - `package.json` の `scan:secrets` を `npx` から `pnpm exec` に変更（lockfile を尊重）
 - `.gitignore` に `.claude/settings.local.json` を明示
 - `.dockerignore` に `.pnpm-store` / `docs` を追加（ビルドコンテキストの肥大を解消）
+- Dev Container の `node_modules` と pnpm ストアを named volume でホストと分離（プラットフォーム固有バイナリの混在による再インストールループと、ホスト checkout への `.pnpm-store` 漏れを解消）
 
 ### Removed
 

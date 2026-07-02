@@ -110,7 +110,7 @@ pnpm update
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .vscode/                 # VS Code 設定（biome を既定フォーマッタに、保存時に fixAll）
 ├── .devcontainer/
-│   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入）
+│   ├── devcontainer.json    # Dev Container 設定（AI エージェントツールも Features で注入、node_modules は volume でホストと分離）
 │   ├── initialize.sh        # initialize フック（ホスト側で実行。グローバル gitignore / git identity / Claude Code 設定をステージング）
 │   ├── post-create.sh       # post-create フック（pnpm install + Codex / Chrome DevTools MCP のセットアップ）
 │   ├── post-start.sh        # post-start フック（ステージングされたホスト設定をコンテナ内へ反映）

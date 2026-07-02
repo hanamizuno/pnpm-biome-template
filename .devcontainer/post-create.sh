@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# node_modules / pnpm ストアは named volume でホストの bind mount から分離している
+# （プラットフォーム固有バイナリの混在によるホスト⇔コンテナの再インストールループ防止）。
+# named volume は初回 root 所有で作成されるため、先に所有権を直す（作成済みなら no-op）。
+sudo chown vscode:vscode /workspace/node_modules "$HOME/.pnpm-store"
+
+# ストアを bind mount の外に固定:
+# - 未指定だと pnpm はプロジェクトと同一 FS にストアを作るため /workspace/.pnpm-store
+#   （= ホストの checkout 直下）に漏れる
+# - volume なのでリビルド後もダウンロードキャッシュが残る
+# pnpm 11 のグローバル設定 (~/.config/pnpm/config.yaml) に直接書く。
+# `pnpm config set --global` はグローバル bin ディレクトリが PATH に無い
+# 非ログインシェルだと検証エラーで失敗するため使わない。
+mkdir -p "$HOME/.config/pnpm"
+printf 'storeDir: %s\n' "$HOME/.pnpm-store" > "$HOME/.config/pnpm/config.yaml"
+
 pnpm install --frozen-lockfile
 
 if ! command -v codex >/dev/null 2>&1; then
