@@ -117,6 +117,7 @@ pnpm update
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
 └── .github/
     ├── dependabot.yml       # GitHub Actions / Docker / Dev Container の自動更新（7 日 cooldown）
+    ├── labeler.yml          # PR 自動ラベリングのパス定義（label_pr.yml が使用）
     ├── labels.yml           # リポジトリラベルの source of truth
     ├── CODEOWNERS           # コードオーナー（プレースホルダ）
     ├── copilot-instructions.md  # GitHub Copilot 向けガイド（AGENTS.md へのポインタ）
@@ -132,6 +133,7 @@ pnpm update
         ├── security.yml      # セキュリティ監査（pnpm audit + Trivy）
         ├── sbom.yml          # CycloneDX SBOM 生成
         ├── deps-update.yml   # 依存関係の自動更新
+        ├── label_pr.yml      # PR 自動ラベリング（actions/labeler）
         ├── labels.yml        # ラベル同期
         └── copilot-setup-steps.yml # GitHub Copilot環境セットアップ
 ```
@@ -182,6 +184,7 @@ TypeScript設定：
 - **sbom.yml**: CycloneDX SBOM の生成（依存関係の変更時、cdxgen）
 - **deps-update.yml**: 依存関係の自動更新（毎週月曜実行、PRを自動作成）
 - **labels.yml**: `.github/labels.yml` から GitHub ラベルを同期
+- **label_pr.yml**: 変更パスに応じて PR に `meta` ラベルを自動付与（actions/labeler、sync-labels 有効。fork からの PR はスキップ）
 - **copilot-setup-steps.yml**: GitHub Copilot用の環境セットアップ
 
 共通規約: 全 workflow で top-level `permissions: {}` + job 単位の最小権限、`concurrency`（push/PR 系は PR のみ cancel、ミューテーション系は直列化）、`timeout-minutes`、アクションの commit SHA 固定（`.zizmor.yml` の `hash-pin` ポリシーで強制）。

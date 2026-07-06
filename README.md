@@ -9,11 +9,22 @@
 - テスト・ベンチマーク・カバレッジ計測（vitest, しきい値 80%）
 - pre-commit hooks による品質保証（biome / typecheck / secretlint）
 - GitHub Actions による CI（Node 24/25 マトリクス、Actions は commit SHA・Dev Container Features と Docker ベースイメージは sha256 digest で固定、依存自動更新）
+- PR 自動ラベリング（actions/labeler — ハーネス変更 PR に `meta` ラベル）とラベル定義の同期（`.github/labels.yml`）
 - セキュリティスキャン（secretlint / pnpm audit / Trivy — push・cron 時は SARIF を Security タブへ集約）
 - SBOM 生成（CycloneDX、cdxgen）
 - Dockerfile / GitHub Actions 自体のリント（hadolint / actionlint / zizmor）
 - VS Code Dev Containers: AI エージェントツールチェーン（Claude Code CLI、Codex CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで重ねて注入
 - Chrome DevTools MCP + headless Chromium: エージェントがコンテナ内で画面の見た目をデバッグ（スクリーンショット・コンソール・ネットワーク確認）
+
+## このテンプレートの導入手順
+
+テンプレートからリポジトリを作成したら:
+
+1. `package.json` の `name` をプロジェクト名に変更する（必要なら `description` 等のメタデータも追加）。
+2. `LICENSE` のプレースホルダ（`[yyyy]`、`[name of copyright owner]`）を記入する — もしくはライセンスごと差し替える。
+3. `.github/CODEOWNERS` の `@REPLACE-ME` を実在の GitHub ユーザー / チームに置き換える。
+4. `docs/knowledge/` のサンプルドキュメントを実プロジェクトの知識で差し替える（運用ルールは `docs/knowledge/index.md` を参照）。
+5. `corepack enable && pnpm install && pnpm release-check` を実行し、セットアップ後のプロジェクトが健全なことを確認する。
 
 ## セットアップ
 

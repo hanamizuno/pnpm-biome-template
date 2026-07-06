@@ -102,6 +102,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 **手順:**
 
 1. GitHub で PAT を発行:
+   - **クイックリンク** — [事前入力済みテンプレート](https://github.com/settings/personal-access-tokens/new?name=agent-devcontainer&description=Agent%20devcontainer%20baseline&expires_in=90&contents=write&pull_requests=write&issues=write&metadata=read&actions=read&workflows=write)を開き（Repository permissions: `Contents: Write` / `Pull requests: Write` / `Issues: Write` / `Metadata: Read` / `Actions: Read` / `Workflows: Write`、有効期限 90 日）、対象リポジトリを選んで *Generate token* をクリック。URL のクエリを書き換えれば、より狭いテンプレートを派生できます（例: read-only のレビュー用トークンなら `pull_requests=write` を外す。workflow dispatch が必要なら `actions=read` を `actions=write` に上げる。エージェントに `.github/workflows/*.yml` を編集させないなら `workflows=write` を外す）。`Administration: Write` は意図的にベースラインに含めていません — リポジトリ作成や設定変更が実際に必要になったときに手動で追加してください。
    - **Fine-grained**（爆発半径を最小化したい場合に推奨） — 対象リポジトリと最小権限を下表から選択。
    - **Classic** — 必要なスコープが最小限になるよう設定（例: `repo` のみ）。`gh` のサブコマンドが fine-grained でまだ未対応な場合のフォールバック。
 2. スコープが累積しないよう既存認証をログアウト:
@@ -137,6 +138,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 | PR へのコメント / オープン / クローズ | `+ Pull requests: Write`, `Issues: Write` |
 | HTTPS `git push` / コミット | `+ Contents: Write`（リポジトリスコープ） |
 | GitHub Actions の読み取り / dispatch | `+ Actions: Read`（dispatch が必要なら `Write`） |
+| `.github/workflows/` 配下の workflow YAML の編集 | `+ Workflows: Write` |
 | リポジトリ作成 / 設定変更 | `+ Administration: Write`（organization では承認要の場合あり） |
 
 **注意 / ハマりどころ:**
