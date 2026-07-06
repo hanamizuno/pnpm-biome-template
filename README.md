@@ -16,6 +16,16 @@
 - VS Code Dev Containers: AI エージェントツールチェーン（Claude Code CLI、Codex CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで重ねて注入
 - Chrome DevTools MCP + headless Chromium: エージェントがコンテナ内で画面の見た目をデバッグ（スクリーンショット・コンソール・ネットワーク確認）
 
+## このテンプレートの導入手順
+
+テンプレートからリポジトリを作成したら:
+
+1. `package.json` の `name` をプロジェクト名に変更する（必要なら `description` 等のメタデータも追加）。
+2. `LICENSE` のプレースホルダ（`[yyyy]`、`[name of copyright owner]`）を記入する — もしくはライセンスごと差し替える。
+3. `.github/CODEOWNERS` の `@REPLACE-ME` を実在の GitHub ユーザー / チームに置き換える。
+4. `docs/knowledge/` のサンプルドキュメントを実プロジェクトの知識で差し替える（運用ルールは `docs/knowledge/index.md` を参照）。
+5. `corepack enable && pnpm install && pnpm release-check` を実行し、セットアップ後のプロジェクトが健全なことを確認する。
+
 ## セットアップ
 
 ```bash
