@@ -10,6 +10,7 @@
 
 - PR 自動ラベリングを追加（actions/labeler + `.github/labeler.yml` — ハーネス変更 PR に `meta` ラベルを自動付与。fork からの PR はスキップ、`pnpm-lock.yaml` / `.nvmrc` は対象外）
 - README にテンプレート導入チェックリスト（リネーム / LICENSE / CODEOWNERS / docs/knowledge / release-check）を追加
+- `.devcontainer/README.md` の PAT 手順に事前入力済み fine-grained PAT テンプレートのクイックリンクと `Workflows: Write` の権限行を追加
 - Dev Container に Chrome DevTools MCP + headless Chromium を追加（エージェントによる画面の見た目デバッグ用。`--no-sandbox` ラッパー経由で起動、日本語フォント同梱、Claude Code / Codex に登録）
 - Dev Container のホスト設定継承（グローバル gitignore / git identity / Claude Code の settings・statusline を `initialize.sh` でステージングし `post-start.sh` で反映）
 - `docs/knowledge/` を OKF v0.1 の知識バンドル（architecture / adr / conventions / runbooks / research のスケルトン）として追加
