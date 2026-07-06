@@ -9,6 +9,7 @@
 - テスト・ベンチマーク・カバレッジ計測（vitest, しきい値 80%）
 - pre-commit hooks による品質保証（biome / typecheck / secretlint）
 - GitHub Actions による CI（Node 24/25 マトリクス、Actions は commit SHA・Dev Container Features と Docker ベースイメージは sha256 digest で固定、依存自動更新）
+- PR 自動ラベリング（actions/labeler — ハーネス変更 PR に `meta` ラベル）とラベル定義の同期（`.github/labels.yml`）
 - セキュリティスキャン（secretlint / pnpm audit / Trivy — push・cron 時は SARIF を Security タブへ集約）
 - SBOM 生成（CycloneDX、cdxgen）
 - Dockerfile / GitHub Actions 自体のリント（hadolint / actionlint / zizmor）
