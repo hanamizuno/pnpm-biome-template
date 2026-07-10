@@ -196,7 +196,7 @@ TypeScript設定：
 - **Biome v2**: 高速なフォーマッター・リンター
 - **vitest**: TypeScriptネイティブなテストランナー
 - **tsx**: TypeScript実行エンジン
-- **TypeScript**: 型安全性とより良い開発体験
+- **TypeScript 7**: Go 製ネイティブコンパイラによる高速な型チェックと型安全性
 
 #### pre-commit hooks
 

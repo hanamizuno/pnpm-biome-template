@@ -30,6 +30,7 @@
 
 ### Changed
 
+- TypeScript を 7 系（Go 製ネイティブコンパイラ）へ更新。TS7 に `tsserver` が含まれなくなったため `typescript.tsdk` 設定を撤去し、TypeScript 7 Language Server 拡張（`TypeScriptTeam.native-preview`）を推奨拡張・Dev Container 拡張に追加
 - `tsconfig.json` を `nodenext` + `noUncheckedIndexedAccess` 等で厳格化、`types: ["node"]` を明示
 - `src/main.ts` の脆いエントリ判定を `import.meta.main`（Node 24+）に置換
 - `Dockerfile` を builder/prod に分離し、prod は `tsc` 成果物を非 root の `node` ユーザーで実行
