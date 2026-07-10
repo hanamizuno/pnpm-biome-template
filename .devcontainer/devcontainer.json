@@ -50,7 +50,7 @@
   "overrideCommand": true,
   "customizations": {
     "vscode": {
-      "extensions": ["biomejs.biome", "editorconfig.editorconfig"],
+      "extensions": ["biomejs.biome", "editorconfig.editorconfig", "TypeScriptTeam.native-preview"],
       "settings": {
         "editor.defaultFormatter": "biomejs.biome",
         "[typescript]": {
@@ -59,8 +59,7 @@
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
           "source.organizeImports.biome": "explicit"
-        },
-        "typescript.tsdk": "node_modules/typescript/lib"
+        }
       }
     }
   }
