@@ -31,7 +31,14 @@
     "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
     "source=agent-history-${devcontainerId},target=/commandhistory,type=volume",
     "source=node-modules-${devcontainerId},target=/workspace/node_modules,type=volume",
-    "source=pnpm-store-${devcontainerId},target=/home/vscode/.pnpm-store,type=volume"
+    "source=pnpm-store-${devcontainerId},target=/home/vscode/.pnpm-store,type=volume",
+    // Proton Pass: pass-cli のログインセッションを rebuild 越しに保つ volume。
+    // PAT 自体は git-ignore の .devcontainer/host-proton-pat ステージ経由で届く
+    // (ワークスペースマウント内。post-start.sh が削除)。containerEnv / remoteEnv
+    // で渡さないこと (コンテナ metadata / docker inspect に残る)。単一ファイルの
+    // bind mount にもしないこと (initializeCommand がスキップされる環境 —
+    // Git Bash の無い Windows — で起動が壊れる)。
+    "source=proton-pass-${devcontainerId},target=/home/vscode/.local/state/proton-pass,type=volume"
   ],
   "containerEnv": {
     "HISTFILE": "/commandhistory/.bash_history",
@@ -39,8 +46,12 @@
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
   },
   "remoteEnv": {
-    "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
-    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
+    // 非シークレットな pass-cli セッション設定 (セッション本体は上記 volume 内)。
+    // API キーの ${localEnv:...} パススルーは廃止 — ホスト shell への平文 export が
+    // 前提になり、コンテナ内でも ambient に見えてしまう。API キーは .env の pass://
+    // 参照 + `pass-cli run` で渡す (README「タスク用シークレット」参照)
+    "PROTON_PASS_KEY_PROVIDER": "fs",
+    "PROTON_PASS_SESSION_DIR": "/home/vscode/.local/state/proton-pass"
   },
   "waitFor": "postCreateCommand",
   "initializeCommand": ".devcontainer/initialize.sh",

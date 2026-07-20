@@ -66,4 +66,21 @@ if [ -n "$GIT_EMAIL" ]; then
   git config --file "$GITUSER_STAGE" user.email "$GIT_EMAIL" 2>/dev/null || rm -f "$GITUSER_STAGE"
 fi
 
+# --- Proton Pass の PAT（タスク用シークレット） --------------------------------
+# macOS の Keychain から Proton Pass の PAT を取り出し、上記と同じ git-ignore の
+# host-* ステージング方式で置く。post-start.sh がコンテナ内で pass-cli にログイン
+# した直後にステージを削除する。Keychain 未登録、または `security` 自体が無い
+# 環境（Linux / Windows）では何もステージングされず、コンテナは pass-cli の
+# シークレットなしで通常どおり動く。
+# README「タスク用シークレット（Proton Pass / pass-cli）」を参照。
+PAT_STAGE=".devcontainer/host-proton-pat"
+rm -f "$PAT_STAGE"
+if command -v security >/dev/null 2>&1; then
+  umask 077
+  security find-generic-password -w -s proton-pass-agent-pat >"$PAT_STAGE" 2>/dev/null || {
+    rm -f "$PAT_STAGE"
+    echo "initialize.sh: Keychain に proton-pass-agent-pat が未登録のため pass-cli ログインはスキップされます" >&2
+  }
+fi
+
 exit 0

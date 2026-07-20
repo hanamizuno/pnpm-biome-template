@@ -80,8 +80,22 @@ RUN apt-get update \
        > /usr/local/bin/chromium-no-sandbox \
     && chmod +x /usr/local/bin/chromium-no-sandbox
 
-RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config/gh \
-    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config \
+# Proton Pass CLI: タスク用シークレット (GH_TOKEN や API キー) は ambient な
+# コンテナ環境変数ではなく `pass-cli run` でコマンド単位に注入する。
+# インストールスクリプトは jq を必要とする。
+# README「タスク用シークレット（Proton Pass / pass-cli）」を参照。
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends jq \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://proton.me/download/pass-cli/install.sh \
+    | PROTON_PASS_CLI_INSTALL_DIR=/usr/local/bin bash
+
+# /home/vscode/.local/state/proton-pass は volume のマウントポイントなので、
+# vscode 所有で事前作成しておく (無いと docker が ~/.local ごと root 所有で作る)
+RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config/gh /home/vscode/.local/state/proton-pass \
+    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config /home/vscode/.local \
     && ln -sf /home/vscode/.claude/.claude.json /home/vscode/.claude.json \
     && chown -h vscode:vscode /home/vscode/.claude.json
 

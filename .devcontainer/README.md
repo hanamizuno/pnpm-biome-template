@@ -23,7 +23,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
      ```bash
      devcontainer exec --workspace-folder . claude --dangerously-skip-permissions
      ```
-   - **Codex CLI**: エージェントを起動して ChatGPT でサインインするか、`OPENAI_API_KEY` を設定します（`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` は `remoteEnv` 経由でホストシェルから転送されます — ホスト側で一度設定すればコンテナ内に現れます）。初回のコンテナ作成時に `codex-config.toml` が永続化される `~/.codex/config.toml` ボリュームにコピーされます。同じ post-create ステップで Claude Code の `~/.claude` ボリュームに `codex@openai-codex` プラグインもインストールされるため、Claude Code がセッションごとの再インストールなしに Codex を呼び出せます（`codex-rescue` サブエージェント + `/codex` スキル）。
+   - **Codex CLI**: エージェントを起動して ChatGPT でサインインします。API キー課金を使う場合は、ホストシェルへの export や `remoteEnv` パススルーではなく、`.env` の `pass://` 参照 + `pass-cli run --env-file .env -- codex` で渡してください（下記「タスク用シークレット（Proton Pass / pass-cli）」参照）。初回のコンテナ作成時に `codex-config.toml` が永続化される `~/.codex/config.toml` ボリュームにコピーされます。同じ post-create ステップで Claude Code の `~/.claude` ボリュームに `codex@openai-codex` プラグインもインストールされるため、Claude Code がセッションごとの再インストールなしに Codex を呼び出せます（`codex-rescue` サブエージェント + `/codex` スキル）。
      ```bash
      devcontainer exec --workspace-folder . codex
      ```
@@ -50,7 +50,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 
 ホスト側にファイルが存在しない場合、そのステップは no-op となりコンテナは通常どおり起動します。
 
-ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。
+ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/` / `host-proton-pat`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。特に `host-proton-pat` は `devcontainer up` からコンテナの post-start（が削除する）までの間だけ本物のシークレットを保持するため、残留コピーを見つけたらそのトークンはローテーション対象と見なしてください。
 
 > **Windows ホスト:** `initializeCommand` はホスト上で bash スクリプトを実行するため、ネイティブ Windows では Git Bash / WSL が `PATH` 上に必要です — 無い場合は同期がスキップされますが、コンテナ自体は起動します。
 
@@ -69,7 +69,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 
 ## 動作モード
 
-- **デフォルト（egress 開放）** — 送信トラフィックは制限しません。ホストの認証情報は bind mount せず（Claude / Codex / `gh` の認証はコンテナスコープのボリュームに格納）、ホストの Docker ソケットも露出しません。`--dangerously-skip-permissions` に対する防御面は「非 root の `vscode` ユーザー」「ワークスペース限定マウント」「コンテナスコープの認証ボリューム」の 3 点です。Codex はコンテナスコープの設定に `approval_policy = "never"` と `sandbox_mode = "workspace-write"` が seed されるため、書き込みをワークスペースに限定しつつ承認待ちなしで動作します。
+- **デフォルト（egress 開放）** — 送信トラフィックは制限しません。ホストの認証情報は bind mount せず（Claude / Codex / `gh` の認証はコンテナスコープのボリュームに格納）、ホストの Docker ソケットも露出しません。`--dangerously-skip-permissions` に対する防御面は「非 root の `vscode` ユーザー」「ワークスペース限定マウント」「コンテナスコープの認証ボリューム」の 3 点です。Codex はコンテナスコープの設定に `approval_policy = "never"` と `sandbox_mode = "workspace-write"` が seed されるため、書き込みをワークスペースに限定しつつ承認待ちなしで動作します。エージェントがネットワークアクセス付きで無人実行されるからこそ、タスク用シークレット（API キーやトークン）は ambient なコンテナ環境変数ではなく `pass-cli run` によるコマンド単位の注入で渡します — 下記「タスク用シークレット（Proton Pass / pass-cli）」参照。
 - **隔離モード（任意）** — より厳格なサンドボックスにしたい場合は、egress 不可の Docker ネットワークを作成しコンテナをそこに接続します:
   ```bash
   docker network create --internal agent-internal
@@ -146,6 +146,35 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 - Fine-grained PAT は `gh` の一部サブコマンドにまだ未対応です。403 や「PAT not supported」が返るときは最小スコープの Classic PAT にフォールバックしてください。
 - トークンはボリューム内の `~/.config/gh/hosts.yml` に格納されます。コンテナ内でシェルが取れる人物は値を読めるため、コンテナの侵害＝トークンのスコープ範囲が侵害された、と見なしてください。
 - ローテーションは手順 2 + 3 の繰り返しで OK（ボリュームを作り直す必要はありません）。
+- 別解として、`post-start.sh` が Proton Pass のアイテム `agent-secrets/github-fine-grained/token` から `gh` 認証を自動 seed します（ボリュームが未認証のときのみ。次節参照）。
+
+## タスク用シークレット（Proton Pass / pass-cli）
+
+このコンテナのエージェントは無人（`approval_policy = "never"`、`--dangerously-skip-permissions`）で動き、自分の環境変数はすべて読めます。そのためタスク用シークレットを ambient なコンテナ環境変数に置いてはいけません — `remoteEnv` / `containerEnv` によるパススルーがまさにそれに当たります（以前の `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` パススルーはこの理由で廃止）。代わりに [Proton Pass CLI](https://protonpass.github.io/pass-cli/) を devcontainer ステージに焼き込み、コマンド単位で注入します:
+
+1. `.env`（git-ignore 済み）には `pass://agent-secrets/<item>/<field>` の**参照だけ**を書きます — `example.env` を `.env` にコピーして始めてください。参照は名前であって値ではないので `example.env` はコミット可能です。実体の `.env` は「本物のトークンをうっかり書いた」事故への保険として ignore のままにします。
+2. シークレットが必要なコマンドは `pass-cli run` 経由で実行します:
+
+   ```bash
+   pass-cli run --env-file .env -- <cmd>
+   ```
+
+   値は実行時に解決され、`<cmd>` の環境変数にのみ注入され、stdout/stderr では `<concealed by Proton Pass>` にマスクされます。
+
+**ログインの仕組み:** ホスト側で `initialize.sh` が macOS Keychain のアイテム `proton-pass-agent-pat` から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat`（0600）としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` が pass-cli にログインし（セッションは `proton-pass-${devcontainerId}` ボリュームに永続化されるため、走るのは初回と PAT ローテーション後だけ）、直後にステージを削除します。Keychain に PAT が無い場合、あるいは `security` 自体が無いホスト（Linux / Windows）では全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
+
+**スコープモデル:** PAT は専用 vault（例: `agent-secrets`）だけにスコープした `viewer` ロール・短期有効期限で発行してください。その vault の中身はエージェントから読めます — 「vault に入れた = エージェントに渡した」と見なし、入れるトークン自体も最小権限にします（GitHub は fine-grained PAT など）。マスキングは衛生であって境界ではありません: サブプロセスはシークレットをファイルに書いたりネットワークに送ったりできます。
+
+**ホスト側セットアップ（初回のみ、macOS）:**
+
+```bash
+read -rs PAT
+security add-generic-password -a "$USER" -s proton-pass-agent-pat \
+  -l 'Proton Pass agent PAT (devcontainer bootstrap)' -T /usr/bin/security -w "$PAT"
+unset PAT
+```
+
+`-T /usr/bin/security` により読み取りが事前許可され、`devcontainer up` が無人で完走します。ローテーションは新しい PAT を発行後、`-U` を付けて再実行してください。コンテナは次回起動時に自動で再ログインします。
 
 ## node_modules と pnpm ストアの分離
 

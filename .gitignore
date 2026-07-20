@@ -147,4 +147,5 @@ dist
 .devcontainer/host-gitignore
 .devcontainer/host-gituser
 .devcontainer/host-claude/
+.devcontainer/host-proton-pat
 
