@@ -185,10 +185,10 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 2. シークレットが必要なコマンドは `pass-cli run` 経由で実行します:
 
    ```bash
-   pass-cli run --env-file .env -- <cmd>
+   PROTON_PASS_AGENT_REASON="<何のための取得か>" pass-cli run --env-file .env -- <cmd>
    ```
 
-   値は実行時に解決され、`<cmd>` の環境変数にのみ注入され、stdout/stderr では `<concealed by Proton Pass>` にマスクされます。
+   値は実行時に解決され、`<cmd>` の環境変数にのみ注入され、stdout/stderr では `<concealed by Proton Pass>` にマスクされます。`PROTON_PASS_AGENT_REASON` は PAT（エージェント）セッションでのアイテム参照に必須で（無いと `pass-cli run` はエラーで失敗します）、値は Proton の監査ログに記録されます。
 
 **ログインの仕組み:** ホスト側で `initialize.sh` が macOS Keychain — プロジェクト別アイテム `proton-pass-agent-pat-<ディレクトリ名>` があればそれ、無ければ共有の `proton-pass-agent-pat` — から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat`（0600）としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` が pass-cli にログインし（セッションは `proton-pass` volume に永続化されるため、走るのは初回と PAT ローテーション後だけ）、直後にステージを削除します。Keychain に PAT が無い場合、あるいは `security` 自体が無いホスト（Linux / Windows）では全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
 

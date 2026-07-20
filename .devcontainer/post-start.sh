@@ -73,10 +73,14 @@ if command -v pass-cli >/dev/null 2>&1; then
   # `github-fine-grained` アイテム（固定名）を順に試す — プロジェクト別 vault は
   # 自分のリポジトリスコープ GitHub PAT をこの名前で持つ運用。best-effort:
   # アイテムが無い、または gh が認証済みならスキップ。
+  # PROTON_PASS_AGENT_REASON は PAT（エージェント）セッションでのアイテム参照に
+  # 必須（無いと pass-cli run が失敗し、ここでは握りつぶされて seed されない）。
+  # 値は Proton の監査ログに記録される。
   if command -v gh >/dev/null 2>&1 && ! gh auth status >/dev/null 2>&1; then
     pass-cli vault list 2>/dev/null | sed -n 's/^- \[[^]]*\]: //p' |
       while IFS= read -r vault; do
-        GH_SEED_TOKEN="pass://$vault/github-fine-grained/token" \
+        PROTON_PASS_AGENT_REASON="Seed gh auth from github-fine-grained (devcontainer post-start)" \
+          GH_SEED_TOKEN="pass://$vault/github-fine-grained/token" \
           pass-cli run -- sh -c 'printf %s "$GH_SEED_TOKEN" | gh auth login --with-token' \
           >/dev/null 2>&1 || true
         gh auth status >/dev/null 2>&1 && break
