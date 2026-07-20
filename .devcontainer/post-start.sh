@@ -69,12 +69,18 @@ if command -v pass-cli >/dev/null 2>&1; then
       pass-cli login
   fi
 
-  # 初回起動時に agent vault から gh 認証を seed する（best-effort: vault に
-  # github トークンのアイテムが無い、または gh が認証済みならスキップ）。
+  # 初回起動時に gh 認証を seed する。この PAT から見える vault それぞれの
+  # `github-fine-grained` アイテム（固定名）を順に試す — プロジェクト別 vault は
+  # 自分のリポジトリスコープ GitHub PAT をこの名前で持つ運用。best-effort:
+  # アイテムが無い、または gh が認証済みならスキップ。
   if command -v gh >/dev/null 2>&1 && ! gh auth status >/dev/null 2>&1; then
-    GH_SEED_TOKEN="pass://agent-secrets/github-fine-grained/token" \
-      pass-cli run -- sh -c 'printf %s "$GH_SEED_TOKEN" | gh auth login --with-token' \
-      >/dev/null 2>&1 || true
+    pass-cli vault list 2>/dev/null | sed -n 's/^- \[[^]]*\]: //p' |
+      while IFS= read -r vault; do
+        GH_SEED_TOKEN="pass://$vault/github-fine-grained/token" \
+          pass-cli run -- sh -c 'printf %s "$GH_SEED_TOKEN" | gh auth login --with-token' \
+          >/dev/null 2>&1 || true
+        gh auth status >/dev/null 2>&1 && break
+      done || true
   fi
 fi
 rm -f .devcontainer/host-proton-pat

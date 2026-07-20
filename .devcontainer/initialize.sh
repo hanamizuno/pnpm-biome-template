@@ -73,14 +73,20 @@ fi
 # 環境（Linux / Windows）では何もステージングされず、コンテナは pass-cli の
 # シークレットなしで通常どおり動く。
 # README「タスク用シークレット（Proton Pass / pass-cli）」を参照。
+# Keychain の参照はプロジェクト別 (proton-pass-agent-pat-<ディレクトリ名>) を先に
+# 探し、無ければ共有デフォルト (proton-pass-agent-pat) にフォールバックする。
+# プロジェクト別アイテムを登録するだけで、そのプロジェクトを専用 vault の PAT に
+# opt-in できる (リポジトリ側の設定は不要)。
 PAT_STAGE=".devcontainer/host-proton-pat"
 rm -f "$PAT_STAGE"
 if command -v security >/dev/null 2>&1; then
   umask 077
-  security find-generic-password -w -s proton-pass-agent-pat >"$PAT_STAGE" 2>/dev/null || {
-    rm -f "$PAT_STAGE"
-    echo "initialize.sh: Keychain に proton-pass-agent-pat が未登録のため pass-cli ログインはスキップされます" >&2
-  }
+  PROJECT_SERVICE="proton-pass-agent-pat-$(basename "$PWD")"
+  security find-generic-password -w -s "$PROJECT_SERVICE" >"$PAT_STAGE" 2>/dev/null ||
+    security find-generic-password -w -s proton-pass-agent-pat >"$PAT_STAGE" 2>/dev/null || {
+      rm -f "$PAT_STAGE"
+      echo "initialize.sh: Keychain に $PROJECT_SERVICE も proton-pass-agent-pat も未登録のため pass-cli ログインはスキップされます" >&2
+    }
 fi
 
 exit 0
