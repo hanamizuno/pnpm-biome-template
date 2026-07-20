@@ -1,6 +1,6 @@
 # AI Agent Dev Container
 
-Dev Container は AI コーディングエージェント（Claude Code / Codex 等）の実行環境も兼ねます。エージェントのツールチェーンは [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで Node.js + pnpm の開発環境に重ねて注入されるため、プロジェクト固有の `claude/` ディレクトリや compose オーバーライドは不要です。
+Dev Container は AI コーディングエージェント（Claude Code / Codex 等）の実行環境も兼ねます。エージェントのツールチェーンは [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで Node.js + pnpm の開発環境に重ねて注入されるため、プロジェクト固有の `claude/` ディレクトリは不要です。コンテナ定義は Docker Compose ベースの `.devcontainer/compose.yaml`（ルートの `compose.yml` / `compose.dev.yml` とは別物）で、個人環境向けの差分は gitignore 済みの `compose.local.yaml` に書けます — 下記「ローカルオーバーライド（compose.local.yaml）」参照。
 
 ## 同梱エージェントツール
 
@@ -18,7 +18,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 ## 初回セットアップ
 
 1. **コンテナを起動** — VS Code の「Reopen in Container」、もしくはヘッドレスに `devcontainer up --workspace-folder .`
-2. **認証**（devcontainer ID ごとに 1 回のみ。ホストから bind mount せず、名前付きボリュームに永続化）:
+2. **認証**（初回のみ。ホストから bind mount せず、固定名の compose named volume に永続化されるため、リビルド後も再ログイン不要）:
    - **Claude Code**: そのままエージェントを起動すれば、初回はインラインでログインフローが表示されます。`/login` を CLI 引数で渡さないこと — それはアクティブセッション用のスラッシュコマンドで、ホストシェルから使うとフローが二重に起動します。
      ```bash
      devcontainer exec --workspace-folder . claude --dangerously-skip-permissions
@@ -38,7 +38,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
          sh -c 'printf "%s\n" "$GH_TOKEN_INPUT" | env -u GH_TOKEN gh auth login --hostname github.com --with-token'
        ```
      - **スコープ限定 PAT**（自律実行向けに推奨） — 下記「GitHub 権限の制限（PAT）」を参照。
-   認証情報は `claude-config-${devcontainerId}` / `codex-config-${devcontainerId}` / `gh-config-${devcontainerId}` ボリュームに格納され、`--remove-existing-container` での再ビルド後も残ります。
+   認証情報は compose named volume（`claude-config` / `codex-config` / `gh-config`。実名は project 名プレフィックス付きで `pnpm-biome-template-devcontainer_claude-config` 等）に格納され、`--remove-existing-container` での再ビルド後も残ります。
 
 ## ホスト設定の継承
 
@@ -53,6 +53,23 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/` / `host-proton-pat`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。特に `host-proton-pat` は `devcontainer up` からコンテナの post-start（が削除する）までの間だけ本物のシークレットを保持するため、残留コピーを見つけたらそのトークンはローテーション対象と見なしてください。
 
 > **Windows ホスト:** `initializeCommand` はホスト上で bash スクリプトを実行するため、ネイティブ Windows では Git Bash / WSL が `PATH` 上に必要です — 無い場合は同期がスキップされますが、コンテナ自体は起動します。
+
+## ローカルオーバーライド（compose.local.yaml）
+
+`devcontainer.json` の `dockerComposeFile` は `["compose.yaml", "compose.local.yaml"]` の 2 ファイル構成で、docker compose のマージ規則で順に合成されます。gitignore 済みの `.devcontainer/compose.local.yaml` に**差分だけ**を書けば、コミットせずに個人環境向けの bind mount / ネットワーク / extra_hosts を追加できます。列挙されたファイルが存在しないと docker compose が起動できないため、ファイルが無い場合は `initialize.sh` が no-op スタブ（`services: { app: {} }`）を自動生成します。
+
+注意: compose の相対パスは project directory（= `.devcontainer/`）基準です。ワークスペースは `..`、リポジトリ隣接ディレクトリは `../../<name>` になります。
+
+例 — リポジトリ隣接ディレクトリを read-only で bind mount する:
+
+```yaml
+services:
+  app:
+    volumes:
+      - ../../<dir>:/<dir>:ro
+```
+
+target を `/<dir>` にすると、コンテナ内の `/workspace` からホストと同じ相対パス `../<dir>` で参照できます。
 
 ## 見た目のデバッグ（Chrome DevTools MCP）
 
@@ -74,7 +91,16 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
   ```bash
   docker network create --internal agent-internal
   ```
-  ローカルオーバーライド（例: `devcontainer.local.json`）に `"runArgs": ["--network=agent-internal"]` を追加します。完全に外向き通信が遮断されるため、切り替え前に依存（`pnpm install` 等）を解決しておき、エージェントが API アクセスを要する場合は別途プロキシサイドカーを用意してください。
+  `compose.local.yaml` にネットワーク接続を追加します:
+  ```yaml
+  services:
+    app:
+      networks: [agent-internal]
+  networks:
+    agent-internal:
+      external: true
+  ```
+  完全に外向き通信が遮断されるため、切り替え前に依存（`pnpm install` 等）を解決しておき、エージェントが API アクセスを要する場合は別途プロキシサイドカーを用意してください。
 
 ## この隔離が担保しない範囲
 
@@ -88,9 +114,12 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 
 **ホストの loopback へのアクセスは意図的に開けていません。** `host.docker.internal` はデフォルトでは追加しません — 開けると `0.0.0.0` にバインドされたホストのサービス（ローカル LLM サーバー、開発用 DB、デバッグダッシュボード）がすべてエージェントから見えてしまいます。どうしても必要な場合（例: ローカルホストの OpenAI 互換エンドポイントをエージェントに使わせる）は、プロジェクトのデフォルトではなくローカルオーバーライドとして追加してください:
 
-```jsonc
-// .devcontainer/devcontainer.local.json (ユーザーごとのオーバーライド。コミットしない)
-{ "runArgs": ["--add-host=host.docker.internal:host-gateway"] }
+```yaml
+# .devcontainer/compose.local.yaml (ユーザーごとのオーバーライド。コミットしない)
+services:
+  app:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
 その上でホスト側のサービスを（`127.0.0.1` ではなく）`0.0.0.0` にバインドし、エージェントには `http://host.docker.internal:<port>` を使わせます。
@@ -161,7 +190,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 
    値は実行時に解決され、`<cmd>` の環境変数にのみ注入され、stdout/stderr では `<concealed by Proton Pass>` にマスクされます。
 
-**ログインの仕組み:** ホスト側で `initialize.sh` が macOS Keychain — プロジェクト別アイテム `proton-pass-agent-pat-<ディレクトリ名>` があればそれ、無ければ共有の `proton-pass-agent-pat` — から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat`（0600）としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` が pass-cli にログインし（セッションは `proton-pass-${devcontainerId}` ボリュームに永続化されるため、走るのは初回と PAT ローテーション後だけ）、直後にステージを削除します。Keychain に PAT が無い場合、あるいは `security` 自体が無いホスト（Linux / Windows）では全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
+**ログインの仕組み:** ホスト側で `initialize.sh` が macOS Keychain — プロジェクト別アイテム `proton-pass-agent-pat-<ディレクトリ名>` があればそれ、無ければ共有の `proton-pass-agent-pat` — から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat`（0600）としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` が pass-cli にログインし（セッションは `proton-pass` volume に永続化されるため、走るのは初回と PAT ローテーション後だけ）、直後にステージを削除します。Keychain に PAT が無い場合、あるいは `security` 自体が無いホスト（Linux / Windows）では全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
 
 **スコープモデル:** PAT は専用 vault（例: `agent-secrets`）だけにスコープした `viewer` ロール・短期有効期限で発行してください。その vault の中身はエージェントから読めます — 「vault に入れた = エージェントに渡した」と見なし、入れるトークン自体も最小権限にします（GitHub は fine-grained PAT など）。マスキングは衛生であって境界ではありません: サブプロセスはシークレットをファイルに書いたりネットワークに送ったりできます。
 
@@ -182,8 +211,8 @@ unset PAT
 
 `node_modules` にはプラットフォーム固有のネイティブバイナリ（biome / esbuild 等）が入るため、ホスト（例: macOS）とコンテナ（Linux）で同じディレクトリを共有すると、切り替えのたびに再インストールが必要になります。このテンプレートでは:
 
-- **`node_modules`** — named volume（`node-modules-${devcontainerId}`）が bind mount 上のホスト側 `node_modules` をコンテナ内でマスクします。ホスト側はホスト用、コンテナ側は volume 内の Linux 用がそのまま残り、双方の再インストールは不要になります。
-- **pnpm ストア** — `post-create.sh` が `store-dir` を volume（`pnpm-store-${devcontainerId}`、`~/.pnpm-store`）に固定します。未指定だと pnpm はプロジェクトと同じファイルシステムにストアを作るため、ホストの checkout 直下に `.pnpm-store/` が漏れてしまうのを防ぎます。volume なのでリビルド後もダウンロードキャッシュが残ります。
+- **`node_modules`** — named volume（`node-modules`）が bind mount 上のホスト側 `node_modules` をコンテナ内でマスクします。ホスト側はホスト用、コンテナ側は volume 内の Linux 用がそのまま残り、双方の再インストールは不要になります。
+- **pnpm ストア** — `post-create.sh` が `store-dir` を volume（`pnpm-store`、`~/.pnpm-store`）に固定します。未指定だと pnpm はプロジェクトと同じファイルシステムにストアを作るため、ホストの checkout 直下に `.pnpm-store/` が漏れてしまうのを防ぎます。volume なのでリビルド後もダウンロードキャッシュが残ります。
 
 依存をやり直したいときはコンテナ内で `rm -rf node_modules && pnpm install` を実行してください（ホスト側には影響しません）。まっさらにしたい場合は `docker volume rm` で該当 volume を削除してからリビルドします。なお、ストア volume と `node_modules` volume は別マウントのため hardlink は効かず pnpm は自動的に copy にフォールバックします（正しさとキャッシュ維持を優先した割り切りです）。
 

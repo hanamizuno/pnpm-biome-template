@@ -5,6 +5,12 @@
 # コンテナ起動を絶対にブロックしないこと: どのパスでも exit 0 で終わる。
 set -u
 
+# --- compose.local.yaml stub --------------------------------------------------
+# dockerComposeFile に列挙された compose.local.yaml（gitignore、ローカル
+# オーバーライド）が無いと docker compose が起動できないため、no-op スタブを作る。
+COMPOSE_LOCAL=".devcontainer/compose.local.yaml"
+[ -f "$COMPOSE_LOCAL" ] || printf 'services:\n  app: {}\n' > "$COMPOSE_LOCAL"
+
 STAGE=".devcontainer/host-gitignore"
 
 resolve() {

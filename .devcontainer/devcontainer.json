@@ -1,14 +1,16 @@
 {
   "name": "pnpm-biome-agent",
-  "build": {
-    "dockerfile": "../Dockerfile",
-    "context": "..",
-    "target": "devcontainer"
-  },
+  // compose.local.yaml は gitignore されたローカルオーバーライド（無ければ
+  // initialize.sh が no-op スタブを生成する）。bind mount 追加などの
+  // 個人環境向け差分はそちらに書く。例:
+  //   services:
+  //     app:
+  //       volumes:
+  //         - ../../<dir>:/<dir>:ro
+  "dockerComposeFile": ["compose.yaml", "compose.local.yaml"],
+  "service": "app",
   "workspaceFolder": "/workspace",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "remoteUser": "vscode",
-  "containerUser": "vscode",
   "features": {
     "ghcr.io/devcontainers/features/common-utils@sha256:dbf431d6b42d55cde50fa1df75c7f7c3999a90cde6d73f7a7071174b3c3d0cc4": {
       "username": "vscode",
@@ -25,28 +27,9 @@
     "ghcr.io/devcontainers/features/github-cli",
     "ghcr.io/anthropics/devcontainer-features/claude-code"
   ],
-  "mounts": [
-    "source=claude-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
-    "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
-    "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
-    "source=agent-history-${devcontainerId},target=/commandhistory,type=volume",
-    "source=node-modules-${devcontainerId},target=/workspace/node_modules,type=volume",
-    "source=pnpm-store-${devcontainerId},target=/home/vscode/.pnpm-store,type=volume",
-    // Proton Pass: pass-cli のログインセッションを rebuild 越しに保つ volume。
-    // PAT 自体は git-ignore の .devcontainer/host-proton-pat ステージ経由で届く
-    // (ワークスペースマウント内。post-start.sh が削除)。containerEnv / remoteEnv
-    // で渡さないこと (コンテナ metadata / docker inspect に残る)。単一ファイルの
-    // bind mount にもしないこと (initializeCommand がスキップされる環境 —
-    // Git Bash の無い Windows — で起動が壊れる)。
-    "source=proton-pass-${devcontainerId},target=/home/vscode/.local/state/proton-pass,type=volume"
-  ],
-  "containerEnv": {
-    "HISTFILE": "/commandhistory/.bash_history",
-    "PROMPT_COMMAND": "history -a",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
-  },
   "remoteEnv": {
-    // 非シークレットな pass-cli セッション設定 (セッション本体は上記 volume 内)。
+    // 非シークレットな pass-cli セッション設定 (セッション本体は compose.yaml の
+    // proton-pass volume 内)。
     // API キーの ${localEnv:...} パススルーは廃止 — ホスト shell への平文 export が
     // 前提になり、コンテナ内でも ambient に見えてしまう。API キーは .env の pass://
     // 参照 + `pass-cli run` で渡す (README「タスク用シークレット」参照)
@@ -58,7 +41,6 @@
   "postCreateCommand": ".devcontainer/post-create.sh",
   "postStartCommand": ".devcontainer/post-start.sh",
   "userEnvProbe": "loginInteractiveShell",
-  "overrideCommand": true,
   "customizations": {
     "vscode": {
       "extensions": ["biomejs.biome", "editorconfig.editorconfig", "TypeScriptTeam.native-preview"],
