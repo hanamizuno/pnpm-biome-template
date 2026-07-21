@@ -50,7 +50,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 
 ホスト側にファイルが存在しない場合、そのステップは no-op となりコンテナは通常どおり起動します。
 
-ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/` / `host-proton-pat`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。特に `host-proton-pat` は `devcontainer up` からコンテナの post-start（が削除する）までの間だけ本物のシークレットを保持するため、残留コピーを見つけたらそのトークンはローテーション対象と見なしてください。
+ステージングされた `host-*` ファイル（`host-gitignore` / `host-gituser` / `host-claude/` / `host-proton-pat`）は個人設定を含む git-ignore されたローカル生成物です。`git clone` では持ち出されませんが、チェックアウトの単純なファイルコピー（`cp -r` や zip）には含まれるため、このテンプレートを git 外でコピーする場合は除外してください。特に `host-proton-pat` は `devcontainer up` からコンテナの post-start（がコンテナ内にコピーしてステージを削除する）までの間だけ本物のシークレットを保持するため、残留コピーを見つけたらそのトークンはローテーション対象と見なしてください。
 
 > **Windows ホスト:** `initializeCommand` はホスト上で bash スクリプトを実行するため、ネイティブ Windows では Git Bash / WSL が `PATH` 上に必要です — 無い場合は同期がスキップされますが、コンテナ自体は起動します。
 
@@ -175,7 +175,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 - Fine-grained PAT は `gh` の一部サブコマンドにまだ未対応です。403 や「PAT not supported」が返るときは最小スコープの Classic PAT にフォールバックしてください。
 - トークンはボリューム内の `~/.config/gh/hosts.yml` に格納されます。コンテナ内でシェルが取れる人物は値を読めるため、コンテナの侵害＝トークンのスコープ範囲が侵害された、と見なしてください。
 - ローテーションは手順 2 + 3 の繰り返しで OK（ボリュームを作り直す必要はありません）。
-- 別解として、`post-start.sh` が agent vault の `github-fine-grained` アイテムから `gh` 認証を自動 seed します（ボリュームが未認証のときのみ。次節参照）。
+- 別解として、`.devcontainer/pass-relogin` が agent vault の `github-fine-grained` アイテムから `gh` 認証を seed します（ボリュームが未認証のときのみ。次節参照）。
 
 ## タスク用シークレット（Proton Pass / pass-cli）
 
@@ -190,22 +190,30 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 
    値は実行時に解決され、`<cmd>` の環境変数にのみ注入され、stdout/stderr では `<concealed by Proton Pass>` にマスクされます。`PROTON_PASS_AGENT_REASON` は PAT（エージェント）セッションでのアイテム参照に必須で（無いと `pass-cli run` はエラーで失敗します）、値は Proton の監査ログに記録されます。
 
-**ログインの仕組み:** ホスト側で `initialize.sh` が macOS Keychain — プロジェクト別アイテム `proton-pass-agent-pat-<ディレクトリ名>` があればそれ、無ければ共有の `proton-pass-agent-pat` — から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat`（0600）としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` が pass-cli にログインし（セッションは `proton-pass` volume に永続化されるため、走るのは初回と PAT ローテーション後だけ）、直後にステージを削除します。Keychain に PAT が無い場合、あるいは `security` 自体が無いホスト（Linux / Windows）では全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
+**ログインの仕組み:** ホスト側で `initialize.sh` が 0600 のファイル — プロジェクト別の `~/.config/proton-pass-agent/<ディレクトリ名>` があればそれ、無ければ共有の `~/.config/proton-pass-agent/pat` — から Proton Pass の PAT を、git-ignore された `.devcontainer/host-proton-pat` としてステージングします — 上記「ホスト設定の継承」と同じ host-* ステージング方式のため、追加の mount はありません。`post-start.sh` がそれをコンテナ内の `~/.local/state/proton-pass-agent/pat`（0600）へコピーし、ステージを削除します。ログイン自体はエージェント主導です: pass-cli にセッションが無いとき、または認証エラーが出たとき、`.devcontainer/pass-relogin` がこのコピーからセッションを確立（再確立）します — pass-cli のセッションは数時間で失効するため、これによりエージェントはコンテナ再起動なしで復旧できます。セッションは `proton-pass` volume に永続化され rebuild を跨いで残ります。ホストに PAT ファイルが無ければ全ステップがスキップされ、コンテナは pass-cli のシークレットなしで通常どおり動きます。
 
-**スコープモデル:** PAT は専用 vault（例: `agent-secrets`）だけにスコープした `viewer` ロール・短期有効期限で発行してください。その vault の中身はエージェントから読めます — 「vault に入れた = エージェントに渡した」と見なし、入れるトークン自体も最小権限にします（GitHub は fine-grained PAT など）。マスキングは衛生であって境界ではありません: サブプロセスはシークレットをファイルに書いたりネットワークに送ったりできます。
+PAT はコンテナ内に常駐するため、「コンテナの侵害 = PAT の侵害」と見なしてください。本当の境界はファイルの置き場所ではなく、下記の Proton 側のスコープ — 専用の最小権限 vault・有効期限・revoke — です。（エージェントがトークンの値を扱う必要は一切ありません: `AGENTS.md` の指示は `pass-relogin` の実行だけを指すため、値は会話ログ・エージェントのメモリ・モデルへの送信コンテキストに載りません。）
 
-**プロジェクト別 vault（任意）:** このプロジェクト専用の被害半径にしたい場合は、専用 vault（例: `agents-<project>`）を作り、それだけにスコープした PAT を Keychain アイテム `proton-pass-agent-pat-<ディレクトリ名>` として登録します — `initialize.sh` が自動で拾い、無ければ共有アイテムにフォールバックするため、リポジトリ側の設定は不要です。PAT 名を vault 名と揃えると Proton の監査ログで「どのプロジェクトのエージェントのアクセスか」が判別できます。プロジェクトのリポジトリスコープ GitHub PAT は固定アイテム名 `github-fine-grained` でその vault に置き（初回起動時に `gh` へ自動 seed）、`.env` の参照先もその vault に向けてください。
+**スコープモデル:** PAT は専用 vault（例: `agent-secrets`）だけにスコープした `viewer` ロール・有効期限付きで発行してください。Proton のデフォルト 60 分はこの運用には短すぎます — 1〜2 週間程度で発行してローテーションします。その vault の中身はエージェントから読めます — 「vault に入れた = エージェントに渡した」と見なし、入れるトークン自体も最小権限にします（GitHub は fine-grained PAT など）。マスキングは衛生であって境界ではありません: サブプロセスはシークレットをファイルに書いたりネットワークに送ったりできます。
 
-**ホスト側セットアップ（初回のみ、macOS）:**
+**プロジェクト別 vault（任意）:** このプロジェクト専用の被害半径にしたい場合は、専用 vault（例: `agents-<project>`）を作り、それだけにスコープした PAT を `~/.config/proton-pass-agent/<ディレクトリ名>` として保存します — `initialize.sh` が自動で拾い、無ければ共有ファイルにフォールバックするため、リポジトリ側の設定は不要です。PAT 名を vault 名と揃えると Proton の監査ログで「どのプロジェクトのエージェントのアクセスか」が判別できます。プロジェクトのリポジトリスコープ GitHub PAT は固定アイテム名 `github-fine-grained` でその vault に置き（`pass-relogin` が `gh` へ seed）、`.env` の参照先もその vault に向けてください。
+
+**ホスト側セットアップ（初回のみ、bash が使える OS ならどれでも）:**
 
 ```bash
-read -rs PAT
-security add-generic-password -a "$USER" -s proton-pass-agent-pat \
-  -l 'Proton Pass agent PAT (devcontainer bootstrap)' -T /usr/bin/security -w "$PAT"
-unset PAT
+mkdir -p ~/.config/proton-pass-agent
+(umask 077; read -rs PAT; printf '%s' "$PAT" > ~/.config/proton-pass-agent/pat)
 ```
 
-`-T /usr/bin/security` により読み取りが事前許可され、`devcontainer up` が無人で完走します。ローテーションは新しい PAT を発行後、`-U` を付けて再実行してください。コンテナは次回起動時に自動で再ログインします。
+ローテーションは新しい PAT を発行後、ファイルを上書きしてコンテナを再起動してください。パスは dotfile 同期ツールやクラウドバックアップの対象外の場所を選びます。以前 macOS の Keychain に PAT を登録していた場合は、次のコマンドで移行できます:
+
+```bash
+mkdir -p ~/.config/proton-pass-agent
+(umask 077; security find-generic-password -w -s proton-pass-agent-pat > ~/.config/proton-pass-agent/pat)
+security delete-generic-password -s proton-pass-agent-pat
+```
+
+（プロジェクト別アイテムは `proton-pass-agent-pat-<ディレクトリ名>` → `~/.config/proton-pass-agent/<ディレクトリ名>` として繰り返してください。）
 
 ## node_modules と pnpm ストアの分離
 

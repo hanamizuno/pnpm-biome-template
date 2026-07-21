@@ -73,26 +73,42 @@ if [ -n "$GIT_EMAIL" ]; then
 fi
 
 # --- Proton Pass の PAT（タスク用シークレット） --------------------------------
-# macOS の Keychain から Proton Pass の PAT を取り出し、上記と同じ git-ignore の
-# host-* ステージング方式で置く。post-start.sh がコンテナ内で pass-cli にログイン
-# した直後にステージを削除する。Keychain 未登録、または `security` 自体が無い
-# 環境（Linux / Windows）では何もステージングされず、コンテナは pass-cli の
-# シークレットなしで通常どおり動く。
+# ホストの 0600 ファイルから Proton Pass の PAT を取り出し、上記と同じ git-ignore
+# の host-* ステージング方式で置く。post-start.sh がコンテナ内に永続化するため、
+# pass-cli のセッションが失効してもエージェントが自力で再ログインできる。
+# ステージはその直後に削除される。ホストにファイルが無ければ何もステージングされず、
+# コンテナは pass-cli のシークレットなしで通常どおり動く。
 # README「タスク用シークレット（Proton Pass / pass-cli）」を参照。
-# Keychain の参照はプロジェクト別 (proton-pass-agent-pat-<ディレクトリ名>) を先に
-# 探し、無ければ共有デフォルト (proton-pass-agent-pat) にフォールバックする。
-# プロジェクト別アイテムを登録するだけで、そのプロジェクトを専用 vault の PAT に
+# 参照はプロジェクト別 (~/.config/proton-pass-agent/<ディレクトリ名>) を先に探し、
+# 無ければ共有デフォルト (~/.config/proton-pass-agent/pat) にフォールバックする。
+# プロジェクト別ファイルを置くだけで、そのプロジェクトを専用 vault の PAT に
 # opt-in できる (リポジトリ側の設定は不要)。
 PAT_STAGE=".devcontainer/host-proton-pat"
+PAT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/proton-pass-agent"
 rm -f "$PAT_STAGE"
-if command -v security >/dev/null 2>&1; then
-  umask 077
-  PROJECT_SERVICE="proton-pass-agent-pat-$(basename "$PWD")"
-  security find-generic-password -w -s "$PROJECT_SERVICE" >"$PAT_STAGE" 2>/dev/null ||
-    security find-generic-password -w -s proton-pass-agent-pat >"$PAT_STAGE" 2>/dev/null || {
+for PAT_SRC in "$PAT_DIR/$(basename "$PWD")" "$PAT_DIR/pat"; do
+  if [ -f "$PAT_SRC" ]; then
+    umask 077
+    cp "$PAT_SRC" "$PAT_STAGE" 2>/dev/null || rm -f "$PAT_STAGE"
+    break
+  fi
+done
+[ -f "$PAT_STAGE" ] ||
+  echo "initialize.sh: $PAT_DIR に PAT ファイルが無いため、コンテナ内で pass-cli ログインは利用できません" >&2
+
+# ステージを正規化する: 紛れ込んだ CR/LF（トークンと一緒に貼り付けた改行など）を
+# 除去し、pst_<token>::<key> 形式のものだけを残す — それ以外は警告付きで破棄し、
+# 不正な PAT がコンテナ起動をブロックしないようにする。
+if [ -s "$PAT_STAGE" ]; then
+  PAT="$(tr -d '\r\n' <"$PAT_STAGE")"
+  case "$PAT" in
+    pst_*::*) printf '%s' "$PAT" >"$PAT_STAGE" ;;
+    *)
       rm -f "$PAT_STAGE"
-      echo "initialize.sh: Keychain に $PROJECT_SERVICE も proton-pass-agent-pat も未登録のため pass-cli ログインはスキップされます" >&2
-    }
+      echo "initialize.sh: PAT ファイルが pst_<token>::<key> 形式ではないため pass-cli ログインは利用できません" >&2
+      ;;
+  esac
+  unset PAT
 fi
 
 exit 0

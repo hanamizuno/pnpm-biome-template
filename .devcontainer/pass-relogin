@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# 冪等な「pass-cli セッション確保」ヘルパー。pass-cli が認証エラーを返したとき、
+# またはセッションが無いとき、コンテナ内のエージェント（または人間）が実行する。
+# post-start.sh が永続化した PAT でログインする。PAT の値そのものは決して出力
+# しないこと — エージェントはこのスクリプトを実行するだけで、トークンを扱わない。
+set -euo pipefail
+
+PAT_FILE="$HOME/.local/state/proton-pass-agent/pat"
+export PROTON_PASS_KEY_PROVIDER="${PROTON_PASS_KEY_PROVIDER:-fs}"
+export PROTON_PASS_SESSION_DIR="${PROTON_PASS_SESSION_DIR:-$HOME/.local/state/proton-pass}"
+
+if pass-cli vault list >/dev/null 2>&1; then
+  echo "pass-cli session OK"
+else
+  if [ ! -s "$PAT_FILE" ]; then
+    echo "pass-relogin: $PAT_FILE に PAT がありません — ホスト側で" \
+      "~/.config/proton-pass-agent/<プロジェクトのディレクトリ名>（または .../pat）に" \
+      "トークンを置いてコンテナを再起動してください" >&2
+    exit 1
+  fi
+  # PROTON_PASS_PERSONAL_ACCESS_TOKEN が設定されていると `pass-cli login` は
+  # PAT ログインフローに入る (--pat フラグで argv に渡すより漏れにくい)。
+  # ローカルに残った古いセッション (サーバー側で失効済みなど) があると login が
+  # "Already authenticated" で失敗するため、先に logout で消す (セッションが
+  # 無ければ logout は無害)。
+  pass-cli logout --force >/dev/null 2>&1 || true
+  PROTON_PASS_PERSONAL_ACCESS_TOKEN="$(cat "$PAT_FILE")" pass-cli login
+  pass-cli info
+fi
+
+# gh 認証を seed する。この PAT から見える vault それぞれの `github-fine-grained`
+# アイテム（固定名）を順に試す — プロジェクト別 vault は自分のリポジトリスコープ
+# GitHub PAT をこの名前で持つ運用。best-effort: アイテムが無い、または gh が
+# 認証済みならスキップ。トークンはパイプの中だけを流れ、表示されない。
+# （名前ベースの pass:// 参照を `pass-cli run` の env に渡しても解決されない —
+# URI は ID ベース。`pass-cli item view --help` 参照 — ためフィールドを直接取る。）
+# PROTON_PASS_AGENT_REASON は PAT（エージェント）セッションでのアイテム参照に
+# 必須（無いと item view が失敗し、ここでは握りつぶされる）。値は Proton の
+# 監査ログに記録される。
+if command -v gh >/dev/null 2>&1 && ! gh auth status >/dev/null 2>&1; then
+  pass-cli vault list 2>/dev/null | sed -n 's/^- \[[^]]*\]: //p' |
+    while IFS= read -r vault; do
+      # 先に取得し、トークンが空でないときだけログインする: stdin が空だと
+      # `gh auth login --with-token` は対話プロンプトにフォールバックし、
+      # 無人実行では永久にハングする。
+      GH_SEED_TOKEN="$(PROTON_PASS_AGENT_REASON="Seed gh auth from github-fine-grained (pass-relogin)" \
+        pass-cli item view --vault-name "$vault" --item-title github-fine-grained \
+          --field token 2>/dev/null || true)"
+      if [ -n "$GH_SEED_TOKEN" ]; then
+        printf '%s\n' "$GH_SEED_TOKEN" | gh auth login --with-token >/dev/null 2>&1 || true
+      fi
+      unset GH_SEED_TOKEN
+      gh auth status >/dev/null 2>&1 && break
+    done || true
+fi

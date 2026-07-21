@@ -25,10 +25,12 @@ services:
       - pnpm-store:/home/vscode/.pnpm-store
       # Proton Pass: pass-cli のログインセッションを rebuild 越しに保つ volume。
       # PAT 自体は git-ignore の .devcontainer/host-proton-pat ステージ経由で届く
-      # (ワークスペースマウント内。post-start.sh が削除)。environment / remoteEnv
-      # で渡さないこと (コンテナ metadata / docker inspect に残る)。単一ファイルの
-      # bind mount にもしないこと (initializeCommand がスキップされる環境 —
-      # Git Bash の無い Windows — で起動が壊れる)。
+      # (ワークスペースマウント内。post-start.sh が pass-relogin 用に
+      # ~/.local/state/proton-pass-agent/pat へ永続化してからステージを削除)。
+      # environment / remoteEnv で渡さないこと (コンテナ metadata /
+      # docker inspect に残る)。単一ファイルの bind mount にもしないこと
+      # (initializeCommand がスキップされる環境 — Git Bash の無い Windows — で
+      # 起動が壊れる)。
       - proton-pass:/home/vscode/.local/state/proton-pass
     environment:
       HISTFILE: /commandhistory/.bash_history

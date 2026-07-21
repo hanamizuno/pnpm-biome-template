@@ -45,46 +45,29 @@ if [ -f .devcontainer/host-claude/settings.json ]; then
 fi
 
 # --- Proton Pass (pass-cli): タスク用シークレット ------------------------------
-# initialize.sh が .devcontainer/host-proton-pat にステージングした PAT で
-# pass-cli にログインする（ステージなし = このホストに PAT なし。黙ってスキップ）。
-# セッションは named volume に永続化されるため、ログインが走るのは初回起動と
-# PAT ローテーション後だけ。ステージは直後に削除する — ワークスペースマウント内の
-# 通常ファイルなので、削除はホスト側のコピーにも反映される。
+# initialize.sh が .devcontainer/host-proton-pat にステージングした PAT を
+# コンテナ内（0600、ワークスペースマウントの外）に永続化する。エージェントは
+# .devcontainer/pass-relogin でログイン — セッション失効後の再ログインも — する。
+# ここではログインしない。セッションはエージェントが必要になったとき確立する。
+# ステージは直後に削除する — ワークスペースマウント内の通常ファイルなので、
+# 削除はホスト側のコピーにも反映される。削除は EXIT トラップで行うため、
+# 途中の失敗 (set -e) で PAT が残ることはない。ステージが無い場合でも既存の
+# コンテナ内コピーは消さない: initializeCommand がスキップされる環境
+# （bash の無い Windows ホストなど）で再ログイン手段まで失わないため。
+trap 'rm -f .devcontainer/host-proton-pat' EXIT
 if command -v pass-cli >/dev/null 2>&1; then
-  export PROTON_PASS_KEY_PROVIDER="${PROTON_PASS_KEY_PROVIDER:-fs}"
   export PROTON_PASS_SESSION_DIR="${PROTON_PASS_SESSION_DIR:-$HOME/.local/state/proton-pass}"
   # セッション volume のマウントポイントと親ディレクトリの所有権を直す:
   # docker は存在しないマウントポイントを root 所有で作る (Dockerfile が
   # 事前作成するようになる前に作られた volume もこれで修復される)。
   sudo mkdir -p "$PROTON_PASS_SESSION_DIR"
   sudo chown vscode:vscode "$HOME/.local" "$HOME/.local/state" "$PROTON_PASS_SESSION_DIR"
-  # PROTON_PASS_PERSONAL_ACCESS_TOKEN が設定されていると `pass-cli login` は
-  # PAT ログインフローに入る (--pat フラグで argv に渡すより漏れにくい)。
-  # ローカルに残った古いセッション (サーバー側で失効済みなど) があると login が
-  # "Already authenticated" で失敗するため、先に logout で消す (セッションが
-  # 無ければ logout は無害)。
-  if ! pass-cli vault list >/dev/null 2>&1 && [ -s .devcontainer/host-proton-pat ]; then
-    pass-cli logout >/dev/null 2>&1 || true
-    PROTON_PASS_PERSONAL_ACCESS_TOKEN="$(cat .devcontainer/host-proton-pat)" \
-      pass-cli login
-  fi
-
-  # 初回起動時に gh 認証を seed する。この PAT から見える vault それぞれの
-  # `github-fine-grained` アイテム（固定名）を順に試す — プロジェクト別 vault は
-  # 自分のリポジトリスコープ GitHub PAT をこの名前で持つ運用。best-effort:
-  # アイテムが無い、または gh が認証済みならスキップ。
-  # PROTON_PASS_AGENT_REASON は PAT（エージェント）セッションでのアイテム参照に
-  # 必須（無いと pass-cli run が失敗し、ここでは握りつぶされて seed されない）。
-  # 値は Proton の監査ログに記録される。
-  if command -v gh >/dev/null 2>&1 && ! gh auth status >/dev/null 2>&1; then
-    pass-cli vault list 2>/dev/null | sed -n 's/^- \[[^]]*\]: //p' |
-      while IFS= read -r vault; do
-        PROTON_PASS_AGENT_REASON="Seed gh auth from github-fine-grained (devcontainer post-start)" \
-          GH_SEED_TOKEN="pass://$vault/github-fine-grained/token" \
-          pass-cli run -- sh -c 'printf %s "$GH_SEED_TOKEN" | gh auth login --with-token' \
-          >/dev/null 2>&1 || true
-        gh auth status >/dev/null 2>&1 && break
-      done || true
+  # 置き場所は ~/.local/state/proton-pass-agent（pass-cli が管理し `logout` で
+  # 消え得るセッションディレクトリとは別）。volume ではなく素のコンテナ FS:
+  # initialize.sh が `devcontainer up` のたびに再ステージするので、コンテナ
+  # 再作成時も再配置される。
+  if [ -s .devcontainer/host-proton-pat ]; then
+    install -d -m 700 "$HOME/.local/state/proton-pass-agent"
+    install -m 600 .devcontainer/host-proton-pat "$HOME/.local/state/proton-pass-agent/pat"
   fi
 fi
-rm -f .devcontainer/host-proton-pat

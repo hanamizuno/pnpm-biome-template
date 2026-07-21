@@ -218,3 +218,9 @@ TypeScript設定：
 3. **小さなコミット**: 論理的な単位でコミット
 4. **CI/CD**: GitHub Actionsで品質を保証
 5. **ドキュメント**: コードの意図を明確に記述
+
+## シークレットの扱い（Proton Pass / pass-cli）
+
+- シークレットをコミットしないこと。タスク用シークレット（API キー、トークン）は ambient な環境変数ではなく Proton Pass（`pass-cli`）から取得する。必要なコマンドは `PROTON_PASS_AGENT_REASON="<取得理由>" pass-cli run --env-file .env -- <cmd>` で実行する（`.env` には `pass://` 参照だけを書く。`example.env` からコピー）。
+- `pass-cli` が認証エラーを返したとき、またはセッションが無いとき（`pass-cli info` が失敗するとき）は `.devcontainer/pass-relogin` を実行してからリトライする。コンテナ内に配備済みのトークンからセッションを復元し、`gh` 認証が無ければ seed もする。
+- `~/.local/state/proton-pass-agent/pat` を読む・表示する・コピーすることは禁止 — トークンの値を扱う必要は一切なく、`pass-relogin` がすべて処理する。
