@@ -181,7 +181,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 
 このコンテナのエージェントは無人（`approval_policy = "never"`、`--dangerously-skip-permissions`）で動き、自分の環境変数はすべて読めます。そのためタスク用シークレットを ambient なコンテナ環境変数に置いてはいけません — `remoteEnv` / `containerEnv` によるパススルーがまさにそれに当たります（以前の `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` パススルーはこの理由で廃止）。代わりに [Proton Pass CLI](https://protonpass.github.io/pass-cli/) を devcontainer ステージに焼き込み、コマンド単位で注入します:
 
-1. `.env`（git-ignore 済み）には `pass://agent-secrets/<item>/<field>` の**参照だけ**を書きます — `example.env` を `.env` にコピーして始めてください。参照は名前であって値ではないので `example.env` はコミット可能です。実体の `.env` は「本物のトークンをうっかり書いた」事故への保険として ignore のままにします。
+1. `.env`（git-ignore 済み）には `pass://SHARE_ID/ITEM_ID/FIELD` の**参照だけ**を書きます — `example.env` を `.env` にコピーして始めてください。参照は ID ベースです: URI に vault 名やアイテム名を書いても解決されません（pass-cli はそのまま素通しします）。ID は `pass-cli item list --vault-name <vault> --output json`（`share_id` / `id` フィールド）で調べられます。参照は識別子であって値ではないので `example.env` はコミット可能です。実体の `.env` は「本物のトークンをうっかり書いた」事故への保険として ignore のままにします。
 2. シークレットが必要なコマンドは `pass-cli run` 経由で実行します:
 
    ```bash
@@ -196,7 +196,7 @@ PAT はコンテナ内に常駐するため、「コンテナの侵害 = PAT の
 
 **スコープモデル:** PAT は専用 vault（例: `agent-secrets`）だけにスコープした `viewer` ロール・有効期限付きで発行してください。Proton のデフォルト 60 分はこの運用には短すぎます — 1〜2 週間程度で発行してローテーションします。その vault の中身はエージェントから読めます — 「vault に入れた = エージェントに渡した」と見なし、入れるトークン自体も最小権限にします（GitHub は fine-grained PAT など）。マスキングは衛生であって境界ではありません: サブプロセスはシークレットをファイルに書いたりネットワークに送ったりできます。
 
-**プロジェクト別 vault（任意）:** このプロジェクト専用の被害半径にしたい場合は、専用 vault（例: `agents-<project>`）を作り、それだけにスコープした PAT を `~/.config/proton-pass-agent/<ディレクトリ名>` として保存します — `initialize.sh` が自動で拾い、無ければ共有ファイルにフォールバックするため、リポジトリ側の設定は不要です。PAT 名を vault 名と揃えると Proton の監査ログで「どのプロジェクトのエージェントのアクセスか」が判別できます。プロジェクトのリポジトリスコープ GitHub PAT は固定アイテム名 `github-fine-grained` でその vault に置き（`pass-relogin` が `gh` へ seed）、`.env` の参照先もその vault に向けてください。
+**プロジェクト別 vault（任意）:** このプロジェクト専用の被害半径にしたい場合は、専用 vault（例: `agents-<project>`）を作り、それだけにスコープした PAT を `~/.config/proton-pass-agent/<ディレクトリ名>` として保存します — `initialize.sh` が自動で拾い、無ければ共有ファイルにフォールバックするため、リポジトリ側の設定は不要です。PAT 名を vault 名と揃えると Proton の監査ログで「どのプロジェクトのエージェントのアクセスか」が判別できます。プロジェクトのリポジトリスコープ GitHub PAT は固定アイテム名 `github-fine-grained` でその vault に置き（`pass-relogin` が `gh` へ seed）、`.env` の参照はその vault のアイテム ID から作ってください。
 
 **ホスト側セットアップ（初回のみ、bash が使える OS ならどれでも）:**
 
