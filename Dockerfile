@@ -3,7 +3,7 @@ ARG NODE_VERSION=24
 
 # ===== Stage 1: base (corepack + pnpm) =====
 # ベースイメージは digest 固定（Dependabot の docker エコシステムが追跡・更新する）
-FROM node:24-slim@sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5 AS base
+FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS base
 
 # corepack キャッシュを全ユーザーが読める場所に固定（root でビルドしても
 # 非 root ユーザー（node）が pnpm を再ダウンロードせずに使えるように）
@@ -38,7 +38,7 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts \
     && cp -r node_modules /prod-modules
 
 # ===== Stage 4: production =====
-FROM node:24-slim@sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5 AS prod
+FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS prod
 
 WORKDIR /app
 
