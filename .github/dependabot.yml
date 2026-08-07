@@ -1,12 +1,13 @@
 version: 2
 
-# npm 依存関係は deps-update.yml が pnpm で扱うため、ここでは扱わない。
+# npm 依存関係は deps-update.yml が pnpm で扱うため、ここでは扱わない
+# （pnpm 側は pnpm-workspace.yaml の minimumReleaseAge: 10080 = 7 日で同等の待機を実現）。
 # cooldown はリリース直後の供給チェーン攻撃を避けるための待機期間。
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
@@ -17,7 +18,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
@@ -30,7 +31,7 @@ updates:
   - package-ecosystem: devcontainers
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7

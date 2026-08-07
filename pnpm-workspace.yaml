@@ -1,2 +1,6 @@
+# リリース直後の供給チェーン攻撃を避けるため、公開から 7 日未満のバージョンは解決しない
+# （.github/dependabot.yml の cooldown.default-days: 7 と揃える。単位: 分）
+minimumReleaseAge: 10080
+
 allowBuilds:
   esbuild: true
