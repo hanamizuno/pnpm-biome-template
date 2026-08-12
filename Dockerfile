@@ -19,7 +19,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY .npmrc ./
 RUN pnpm install --frozen-lockfile
 
-USER node
+# node ユーザー。数値 UID なら実行環境（K8s の runAsNonRoot 等）が非 root を検証できる（DL3066）
+USER 1000
 CMD ["pnpm", "dev"]
 
 # ===== Stage 3: builder (tsc でビルド + 本番依存のみ抽出) =====
@@ -46,7 +47,8 @@ COPY --from=builder --chown=node:node /prod-modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 
-USER node
+# node ユーザー。数値 UID なら実行環境（K8s の runAsNonRoot 等）が非 root を検証できる（DL3066）
+USER 1000
 ENTRYPOINT []
 CMD ["node", "dist/main.js"]
 
