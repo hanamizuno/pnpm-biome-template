@@ -53,7 +53,7 @@ ENTRYPOINT []
 CMD ["node", "dist/main.js"]
 
 # ===== Stage 5: devcontainer =====
-FROM mcr.microsoft.com/vscode/devcontainers/base:bookworm@sha256:bb7b81b6e5be17b5267f92f4ffda534fea37dab1df97b5e86c1f9b91da5c0b5d AS devcontainer
+FROM mcr.microsoft.com/vscode/devcontainers/base:bookworm@sha256:73d85a96694a2cadca1ba3fcb5721f2312a64f1d571dd86f6c77e10a708931dc AS devcontainer
 
 ARG NODE_VERSION
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
