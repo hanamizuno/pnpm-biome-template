@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
-コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container は Docker Compose ベース（`.devcontainer/compose.yaml` + `devcontainer.json`。gitignore 済み `compose.local.yaml` で個人環境向けオーバーライド可）で、AI エージェント CLI（Claude Code / Codex / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore、git identity（user.name / user.email）、Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container は Docker Compose ベース（`.devcontainer/compose.yaml` + `devcontainer.json`。gitignore 済み `compose.local.yaml` で個人環境向けオーバーライド可）で、AI エージェント CLI（Claude Code / Codex / OpenCode / Pi / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます（post-create 管理分は `post-create.sh` 冒頭の `AGENTS` 配列でコメントアウトにより取捨選択可）。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore、git identity（user.name / user.email）、Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。
 
 ## 開発コマンド
 
@@ -113,7 +113,7 @@ pnpm update
 │   ├── devcontainer.json    # Dev Container 設定（compose.yaml を参照。AI エージェントツールは Features で注入）
 │   ├── compose.yaml         # devcontainer 用 compose 定義（固定名 volume で認証永続化・node_modules 分離。compose.local.yaml でローカルオーバーライド）
 │   ├── initialize.sh        # initialize フック（ホスト側で実行。compose.local.yaml スタブ生成 + グローバル gitignore / git identity / Claude Code 設定をステージング）
-│   ├── post-create.sh       # post-create フック（pnpm install + Codex / Chrome DevTools MCP のセットアップ）
+│   ├── post-create.sh       # post-create フック（pnpm install + AGENTS 配列で選択したエージェント CLI（Codex / OpenCode / Pi）+ Chrome DevTools MCP のセットアップ）
 │   ├── post-start.sh        # post-start フック（ステージングされたホスト設定をコンテナ内へ反映）
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
 └── .github/

@@ -18,23 +18,54 @@ printf 'storeDir: %s\n' "$HOME/.pnpm-store" > "$HOME/.config/pnpm/config.yaml"
 
 pnpm install --frozen-lockfile
 
-if ! command -v codex >/dev/null 2>&1; then
-  sudo npm install -g @openai/codex
-fi
+# ===== エージェント CLI の選択 ================================================
+# 配列の要素をコメントアウトすると、そのエージェントのインストールと関連
+# セットアップ（設定 seed、Claude Code プラグイン登録など）をスキップできる。
+# Claude Code / GitHub CLI は devcontainer.json の Features 管理なのでここには
+# 含めない。無効化してもアンインストールはされず、反映にはコンテナの rebuild
+# が必要（認証 volume は残る）。
+AGENTS=(
+  codex     # Codex CLI + Codex plugin for Claude Code
+  opencode  # OpenCode
+  pi        # Pi (@earendil-works/pi-coding-agent)
+)
 
-mkdir -p "$HOME/.codex"
+install_codex() {
+  if ! command -v codex >/dev/null 2>&1; then
+    sudo npm install -g @openai/codex
+  fi
 
-if [ ! -f "$HOME/.codex/config.toml" ]; then
-  cp .devcontainer/codex-config.toml "$HOME/.codex/config.toml"
-fi
+  mkdir -p "$HOME/.codex"
 
-# Codex を Claude Code のプラグインとして登録し、Claude Code から必要に応じて
-# Codex に委譲できるようにする（codex-rescue サブエージェント + /codex スキル）。
-# ~/.claude ボリュームは再ビルド後も残るため、インストール済みならスキップして冪等に保つ。
-if ! claude plugin list 2>/dev/null | grep -q 'codex@openai-codex'; then
-  claude plugin marketplace add openai/codex-plugin-cc || true
-  claude plugin install codex@openai-codex
-fi
+  if [ ! -f "$HOME/.codex/config.toml" ]; then
+    cp .devcontainer/codex-config.toml "$HOME/.codex/config.toml"
+  fi
+
+  # Codex を Claude Code のプラグインとして登録し、Claude Code から必要に応じて
+  # Codex に委譲できるようにする（codex-rescue サブエージェント + /codex スキル）。
+  # ~/.claude ボリュームは再ビルド後も残るため、インストール済みならスキップして冪等に保つ。
+  if ! claude plugin list 2>/dev/null | grep -q 'codex@openai-codex'; then
+    claude plugin marketplace add openai/codex-plugin-cc || true
+    claude plugin install codex@openai-codex
+  fi
+}
+
+install_opencode() {
+  if ! command -v opencode >/dev/null 2>&1; then
+    sudo npm install -g opencode-ai
+  fi
+}
+
+install_pi() {
+  if ! command -v pi >/dev/null 2>&1; then
+    sudo npm install -g @earendil-works/pi-coding-agent
+  fi
+}
+
+# 要素名から install_<name> を呼ぶ。typo は command not found で即失敗する
+for agent in "${AGENTS[@]}"; do
+  "install_${agent}"
+done
 
 # Chrome DevTools MCP をグローバルインストールし、コンテナ内の headless Chromium で
 # 画面の見た目（スクリーンショット・コンソール・ネットワーク）をデバッグできるようにする。
