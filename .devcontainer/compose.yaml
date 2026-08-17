@@ -17,6 +17,11 @@ services:
       - ..:/workspace:cached
       - claude-config:/home/vscode/.claude
       - codex-config:/home/vscode/.codex
+      # OpenCode は XDG 準拠で認証（data 側の auth.json）と設定が分かれるため 2 volume
+      - opencode-data:/home/vscode/.local/share/opencode
+      - opencode-config:/home/vscode/.config/opencode
+      # Pi は ~/.pi に設定・認証（agent/auth.json）が同居するため 1 volume
+      - pi-config:/home/vscode/.pi
       - gh-config:/home/vscode/.config/gh
       - agent-history:/commandhistory
       # bind mount 上のホスト側 node_modules をコンテナ内でマスクする
@@ -39,6 +44,9 @@ services:
 volumes:
   claude-config:
   codex-config:
+  opencode-data:
+  opencode-config:
+  pi-config:
   gh-config:
   agent-history:
   node-modules:

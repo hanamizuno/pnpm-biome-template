@@ -97,7 +97,8 @@ RUN apt-get update \
 # /home/vscode/.local/state/proton-pass は volume のマウントポイントなので、
 # vscode 所有で事前作成しておく (無いと docker が ~/.local ごと root 所有で作る)
 RUN mkdir -p /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config/gh /home/vscode/.local/state/proton-pass \
-    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.config /home/vscode/.local \
+       /home/vscode/.local/share/opencode /home/vscode/.config/opencode /home/vscode/.pi \
+    && chown -R vscode:vscode /commandhistory /home/vscode/.claude /home/vscode/.codex /home/vscode/.pi /home/vscode/.config /home/vscode/.local \
     && ln -sf /home/vscode/.claude/.claude.json /home/vscode/.claude.json \
     && chown -h vscode:vscode /home/vscode/.claude.json
 

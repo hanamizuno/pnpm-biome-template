@@ -11,9 +11,15 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
 | Claude Code CLI | `ghcr.io/anthropics/devcontainer-features/claude-code` |
 | Codex CLI | `post-create.sh` が `npm install -g @openai/codex` でインストール |
 | Codex プラグイン（Claude Code 用） | `post-create.sh` が `claude plugin install codex@openai-codex` でインストール。Claude Code から必要に応じて Codex に委譲できる（`codex-rescue` サブエージェント + `/codex` スキル） |
+| OpenCode | `post-create.sh` が `npm install -g opencode-ai` でインストール |
+| Pi | `post-create.sh` が `npm install -g @earendil-works/pi-coding-agent` でインストール |
 | Chrome DevTools MCP（見た目のデバッグ用） | リポジトリルートの `Dockerfile` の `devcontainer` ステージが headless Chromium + 日本語フォントを導入し、`post-create.sh` が `chrome-devtools-mcp` をインストールして Claude Code に登録（Codex には `codex-config.toml` で登録） |
 
-各 Feature は再現性のため `devcontainer.json` で `sha256` digest 固定されています。Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features / post-create 側、という方針）。別の エージェント CLI（Cursor 等）を追加したい場合は、上流の Feature、`./<feature-id>/` 配下のローカル Feature、もしくは `post-create.sh` への冪等なインストールステップのいずれかを追記してください。
+各 Feature は再現性のため `devcontainer.json` で `sha256` digest 固定されています。Node.js / pnpm は本リポジトリの `Dockerfile` の `devcontainer` ステージで導入しています（言語ランタイムは Dockerfile 側、エージェントツールは Features / post-create 側、という方針）。
+
+post-create 管理のエージェント（Codex / OpenCode / Pi）は `post-create.sh` 冒頭の `AGENTS` 配列で選択します。配列の行をコメントアウトすると、そのエージェントのインストールと関連セットアップ（設定 seed、Claude Code プラグイン登録など）がスキップされます。無効化は非破壊で、インストール済みコンテナからのアンインストールはしません — 反映にはコンテナの rebuild が必要で、認証 volume はそのまま残ります（再有効化すれば再ログイン不要）。恒久的にローカルだけ選択を変えたい場合は、gitignore したファイル（例 `agents.local.sh`）で `AGENTS` を上書きするよう `post-create.sh` に `source` を 2 行足せば後付けできます。
+
+別の エージェント CLI（Cursor 等）を追加したい場合は、上流の Feature、`./<feature-id>/` 配下のローカル Feature、もしくは `post-create.sh` への冪等な `install_<name>` 関数 + `AGENTS` 配列 1 行（認証を永続化するなら `compose.yaml` の volume と `Dockerfile` のマウントポイント事前作成も）のいずれかを追記してください。
 
 ## 初回セットアップ
 
@@ -27,6 +33,14 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
      ```bash
      devcontainer exec --workspace-folder . codex
      ```
+   - **OpenCode**: `auth login` でプロバイダを選んでログインします（認証は `opencode-data` volume の `auth.json` に保存）。
+     ```bash
+     devcontainer exec --workspace-folder . opencode auth login
+     ```
+   - **Pi**: エージェントを起動して `/login` でプロバイダにログインします（認証は `pi-config` volume の `agent/auth.json` に保存）。API キー課金を使う場合は Codex と同様に `.env` の `pass://` 参照 + `pass-cli run --env-file .env -- pi` で渡してください。
+     ```bash
+     devcontainer exec --workspace-folder . pi
+     ```
    - **GitHub CLI** — 以下のいずれか:
      - **Web フロー**（対話。OAuth スコープはログイン時に選択）:
        ```bash
@@ -38,7 +52,7 @@ Dev Container は AI コーディングエージェント（Claude Code / Codex 
          sh -c 'printf "%s\n" "$GH_TOKEN_INPUT" | env -u GH_TOKEN gh auth login --hostname github.com --with-token'
        ```
      - **スコープ限定 PAT**（自律実行向けに推奨） — 下記「GitHub 権限の制限（PAT）」を参照。
-   認証情報は compose named volume（`claude-config` / `codex-config` / `gh-config`。実名は project 名プレフィックス付きで `pnpm-biome-template-devcontainer_claude-config` 等）に格納され、`--remove-existing-container` での再ビルド後も残ります。
+   認証情報は compose named volume（`claude-config` / `codex-config` / `opencode-data` / `opencode-config` / `pi-config` / `gh-config`。実名は project 名プレフィックス付きで `pnpm-biome-template-devcontainer_claude-config` 等）に格納され、`--remove-existing-container` での再ビルド後も残ります。
 
 ## ホスト設定の継承
 
