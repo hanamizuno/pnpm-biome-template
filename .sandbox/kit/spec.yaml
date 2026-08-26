@@ -1,8 +1,9 @@
 # Docker Sandboxes (sbx) 用の共有 mixin kit。
-# リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する:
-#   sbx run claude   --kit ./.sandbox/kit
-#   sbx run codex    --kit ./.sandbox/kit
-#   sbx run opencode --kit ./.sandbox/kit
+# リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する
+# （--clone は必須。理由は ../README.md「clone モードで運用する」参照）:
+#   sbx run claude   --clone --kit ./.sandbox/kit
+#   sbx run codex    --clone --kit ./.sandbox/kit
+#   sbx run opencode --clone --kit ./.sandbox/kit
 # エージェント別に kit を分けず、エージェント固有のセットアップ（Codex 設定 seed、
 # Claude Code への MCP 登録・Codex プラグイン登録）はガード付きで同居させる —
 # 対象外のエージェントの sandbox に入っても無害（設定は読まれず、登録はスキップされる）。
@@ -35,9 +36,9 @@ setup:
         set -eu
         corepack enable
 
-    # storeDir を home 側に固定するのは、direct モードではワークスペースが
-    # ホストのチェックアウトそのものなので、未指定だと pnpm がチェックアウト
-    # 直下に .pnpm-store を作ってしまうため（devcontainer と同じ理由）。
+    # storeDir を home 側に固定するのは、未指定だと pnpm がワークスペース直下に
+    # .pnpm-store を作ってしまうため（devcontainer と同じ理由）。clone モードでは
+    # 作業ツリーを、direct モードではホストのチェックアウトを汚さずに済む。
     - description: pnpm の準備と store の分離（agent ユーザー）
       user: "1000"
       command: |
@@ -67,7 +68,7 @@ setup:
         else
           # Playwright の Chromium 用システム依存ライブラリのみ root で導入
           # （本体は次ステップで agent ユーザーのキャッシュに入る）
-          npx -y playwright@latest install-deps chromium
+          npx -y playwright@1.62.1 install-deps chromium
         fi
         cat > /usr/local/bin/chromium-no-sandbox <<'EOF'
         #!/bin/sh
@@ -78,13 +79,14 @@ setup:
         EOF
         chmod +x /usr/local/bin/chromium-no-sandbox
 
-    # Playwright のバージョンは初回の実機検証で入ったものに合わせて固定すること
-    # （chrome-devtools-mcp と同じ再現性の方針）。
+    # Playwright のバージョンは実機検証で入ったもの（1.62.1 / chromium-1234 =
+    # Chromium 151.0.7922.34）に固定している（chrome-devtools-mcp と同じ再現性の
+    # 方針）。更新時は install-deps 側と揃えて上げる。
     - description: Chromium 本体の取得と起動検証（agent ユーザー）
       user: "1000"
       command: |
         set -eu
-        command -v chromium >/dev/null 2>&1 || npx -y playwright@latest install chromium
+        command -v chromium >/dev/null 2>&1 || npx -y playwright@1.62.1 install chromium
         /usr/local/bin/chromium-no-sandbox --version
 
     # バージョンは devcontainer 側で検証済みのものに固定（再現性と supply-chain
@@ -95,12 +97,16 @@ setup:
         set -eu
         command -v chrome-devtools-mcp >/dev/null 2>&1 || npm install -g chrome-devtools-mcp@1.7.0
 
+    # -s user は必須。既定スコープは local（= cwd 単位のプロジェクトスコープ）で、
+    # install ステップの cwd はワークスペースとは限らないため、既定のままだと
+    # 登録が作業ディレクトリから見えない（実機検証で /home/agent/workspace 配下に
+    # 登録され、claude mcp list に出ない事象を確認済み）。
     - description: Claude Code への MCP 登録（claude が無いテンプレートではスキップ）
       user: "1000"
       command: |
         set -eu
         if command -v claude >/dev/null 2>&1 && ! claude mcp get chrome-devtools >/dev/null 2>&1; then
-          claude mcp add chrome-devtools -- chrome-devtools-mcp \
+          claude mcp add -s user chrome-devtools -- chrome-devtools-mcp \
             --headless --isolated --no-usage-statistics \
             --executablePath /usr/local/bin/chromium-no-sandbox
         fi
@@ -131,8 +137,9 @@ setup:
 
   files:
     # Codex CLI の初期設定。codex テンプレートが既に config を seed している
-    # 場合は上書きしない。${WORKDIR} は sandbox のワークスペース絶対パス
-    # （direct モードではホストのチェックアウトパスがそのまま保存される）。
+    # 場合は上書きしない。${WORKDIR} は sandbox 作成時にワークスペースの絶対パスへ
+    # 展開される（clone モードでは VM 内のクローンのパス。展開されることは
+    # direct モードでの実機検証で確認済み）。
     - path: /home/agent/.codex/config.toml
       onlyIfMissing: true
       content: |
@@ -223,9 +230,17 @@ credentials:
 
 agentInstructions:
   content: |
-    - この環境は Docker Sandboxes の microVM 内。ワークスペースは direct モードで、
-      パスはホストの絶対パスのまま。編集は即ホストの作業ツリーに反映される。
+    - この環境は Docker Sandboxes の microVM 内。ワークスペースは clone モードの
+      独立した git クローンで、ホストの作業ツリーとは別物。編集はホストに自動同期
+      されない — 成果は必ずコミットして push すること（`sbx rm` すると push して
+      いないコミットは失われる）。GitHub への push は動作確認済み。
+    - ホスト側でサンドボックス作成後に積まれたコミットは、read-only で bind mount
+      された `/run/sandbox/source` から取り込む（`git fetch /run/sandbox/source`）。
+      `origin` は GitHub を指しており、ホストの未 push コミットは含まれない。
+    - gitignore されたファイル（ローカル設定など）はクローンに含まれない。
     - パッケージ管理は pnpm（corepack 管理）。初回は `pnpm install --frozen-lockfile`。
+      TTY が無いため、pnpm が node_modules の purge 確認を求めて止まる場合は
+      `CI=true` を付けて実行する。
     - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。
     - GitHub 認証はホスト側プロキシが自動でヘッダ注入する。環境変数 GH_TOKEN の
       中身は sentinel（実値ではない）で、トークンの実値はこの環境に存在しない。

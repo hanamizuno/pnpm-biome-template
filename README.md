@@ -72,7 +72,7 @@ VS Code Dev Container を AI コーディングエージェント（Claude Code 
 
 ## AI Agent Sandbox（Docker Sandboxes）
 
-より強い隔離（microVM・deny-by-default ネットワーク・シークレット非搬入）でエージェントを無人実行するための [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit を `.sandbox/` に同梱しています。Dev Container と併存し、ホスト側で `sbx run claude --kit ./.sandbox/kit` のように使います。詳細は [.sandbox/README.md](.sandbox/README.md) を参照してください。
+より強い隔離（microVM・deny-by-default ネットワーク・シークレット非搬入）でエージェントを無人実行するための [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit を `.sandbox/` に同梱しています。Dev Container と併存し、ホスト側で `sbx run claude --clone --kit ./.sandbox/kit` のように使います。詳細は [.sandbox/README.md](.sandbox/README.md) を参照してください。
 
 ## リリースチェックリスト
 

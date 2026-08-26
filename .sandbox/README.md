@@ -46,8 +46,9 @@ sbx login
 #    になり、エージェントごと・リポジトリごとに別 sandbox になる。
 #    起動時に kit の credentials 利用確認が出るので Approve する
 #    （ここで No にするとプロキシ注入が効かない）。
+#    --clone は必須（理由は後述「clone モードで運用する」）。
 cd <このリポジトリの checkout>
-sbx run claude --kit ./.sandbox/kit
+sbx run claude --clone --kit ./.sandbox/kit
 
 # 2) GitHub の fine-grained PAT を、その sandbox だけにスコープして登録
 #    （第 1 引数は自動命名された sandbox 名。`sbx ls` で確認できる。
@@ -59,8 +60,8 @@ sbx run claude --kit ./.sandbox/kit
 sbx secret set claude-<ディレクトリ名> github
 
 # Codex / OpenCode も同様（sandbox ごとに secret を登録する）
-sbx run codex --kit ./.sandbox/kit
-sbx run opencode --kit ./.sandbox/kit
+sbx run codex --clone --kit ./.sandbox/kit
+sbx run opencode --clone --kit ./.sandbox/kit
 ```
 
 同一ワークスペース・同一エージェントで複数の sandbox を並行させたい場合のみ `--name` で明示的に名前を付けます。
@@ -81,15 +82,39 @@ kit（[kit/spec.yaml](kit/spec.yaml)）が sandbox 作成時にセットアッ�
 ## 日常運用
 
 - 同じワークスペースで `sbx run` すると**既存 sandbox に再接続**します（install は再実行されない）
-- `sbx ls` で一覧、`sbx stop <name>` で停止、`sbx rm <name>` で削除（VM 内の全状態が消える。ワークスペースのファイルはホストに残る）
-- kit を更新したら `sbx rm` → 再 `sbx run --kit ...` で作り直して反映する（`sbx kit add` は `setup.files` を含む kit を受け付けないため、この kit には使えない）
+- `sbx ls` で一覧、`sbx stop <name>` で停止、`sbx rm <name>` で削除（**VM 内の全状態が消える** — clone モードでは push していないコミットも失われる）
+- kit を更新したら `sbx rm` → 再 `sbx run --clone --kit ...` で作り直して反映する（`sbx kit add` は `setup.files` を含む kit を受け付けないため、この kit には使えない）
 - 同一ワークスペースで並行作業したい場合は `--name` で別名の sandbox を作る
 
-## direct モードの注意
+## clone モードで運用する
 
-ワークスペースは direct モード（ホストのファイルシステムをパススルー）で、**VM 内でもホストの絶対パス（`/Users/...` 等）のまま**見えます。エージェントの編集は即ホストの作業ツリーに反映されます。
+`sbx run` は既定では **direct モード**（ホストのファイルシステムをパススルーし、VM 内でもホストの絶対パス `/Users/...` のまま見える）ですが、**このテンプレートでは `--clone` を必ず付けてください**。direct モードには本テンプレート構成と両立しない問題があります:
 
-**同じ checkout に対してホスト側で `pnpm install` を実行しないでください。** `node_modules` がホストとそのまま共有されるため、macOS バイナリと Linux バイナリが衝突します。devcontainer は named volume で `node_modules` をマスクしているため、**devcontainer と sbx の共存は問題ありません**（衝突するのはホスト macOS ↔ sbx の組み合わせのみ）。より強くホストと切り離したい場合は clone モード（`sbx run --clone`）も使えます。
+1. **`node_modules` がホストと共有され、macOS バイナリと Linux バイナリが衝突する。** 「ホスト側で `pnpm install` しない」という運用ルールでは防げません — sandbox 側の `pnpm install` が**ホストの `node_modules` を Linux 版で上書きしてしまう**からです。`.pre-commit-config.yaml` の hooks は `language: system` でホストの `pnpm biome` / `pnpm typecheck` を叩くため、ホストでコミットする限り darwin バイナリの `node_modules` が必要で、両立しません。加えて、ホストに既存の `node_modules` があると sandbox 内の `pnpm install` が purge 確認を求め、TTY が無いため `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` で止まります
+2. **virtiofs がシンボリックリンクの `st_size` を 0 と報告する。** git は symlink をサイズ経由で読むため、`CLAUDE.md`（→ `AGENTS.md`）のようなリンクが「中身が消えた」変更として差分に出ます。**気付かずコミットすると、リンク先が空の壊れたファイルが記録されます**
+3. `node_modules` の I/O が virtiofs 越しになり、インストール・テストが遅い
+
+clone モードではワークスペースが **VM 内の独立した git クローン**（worktree ではない）になるため、いずれも構造的に起きません。ホストの `node_modules` はそのまま温存でき、触る必要がありません。
+
+### 運用上の違い
+
+- **未コミットの変更はクローンに入りません。** 作業中の変更がある状態で sandbox を作り直す場合は、先にコミットしてください
+- **gitignore されたファイルも入りません。** 実害があるとすれば `.claude/settings.local.json`（Claude Code の権限許可リスト）が無く許可プロンプトが復活する程度で、`.devcontainer/host-*` は devcontainer 専用のため sbx には無関係です
+- **成果は push で受け取ります。** GitHub への `git push` はプロキシのヘッダ注入で通ることを確認済みなので、ブランチを push して PR にするのが基本の受け渡し経路です。「エージェントの無人実行 → PR でレビュー」という本テンプレートの使い分けとも噛み合います
+- push せずにホストへ取り出したい場合は、ホスト側で sandbox が公開する git-daemon から取得します（sandbox 起動中のみ有効）:
+
+  ```bash
+  git fetch sandbox-claude-<ディレクトリ名>
+  ```
+
+- 逆に、**sandbox 作成後にホストへ積んだコミット**を VM 内へ取り込むには、read-only で bind mount されたホストリポジトリから fetch します（`origin` は GitHub を指すため、ホストの未 push コミットは含まれません）:
+
+  ```bash
+  git fetch /run/sandbox/source
+  git log HEAD..FETCH_HEAD --oneline
+  ```
+
+- **`sbx rm` は push していないコミットを消します。** 長時間の無人実行ではこまめに push させてください（kit の `agentInstructions` にも明記しています）
 
 ## ネットワークポリシーの監査
 
@@ -146,7 +171,7 @@ sandbox はテンプレートイメージ単位（= 親エージェント単位�
 - 委譲先の認証は 2 通り: sandbox 内で対話ログイン（`codex login` 等。`sbx rm` まで永続）、または組み込みサービスのプロキシ注入（`sbx secret set <sandbox名> openai` — API キーの実値を VM に入れない。ChatGPT サブスクリプション認証を使う場合は対話ログイン一択）。
 - codex / opencode 単体実行用の sandbox では、これらのステップは `command -v` ガードで no-op になります。
 
-なお **sandbox をまたいだ協調は基本できません**（ファイルシステム・ネットワークとも隔離。direct モードの共有ワークスペース経由のファイル受け渡しのみ）。密結合のオーケストレーションは 1 つの claude sandbox に同居させてください。
+なお **sandbox をまたいだ協調は基本できません**（ファイルシステム・ネットワークとも隔離。clone モードでは各 sandbox が独立したクローンを持つため、受け渡しは GitHub 経由の push / fetch になります）。密結合のオーケストレーションは 1 つの claude sandbox に同居させてください。
 
 ## ホスト試用チェックリスト
 
@@ -155,16 +180,17 @@ sandbox はテンプレートイメージ単位（= 親エージェント単位�
 1. `sbx version` — インストール確認
 2. `sbx login` — Docker アカウントへのサインイン（ブラウザのデバイスコードフロー）
 3. `sbx kit validate ./.sandbox/kit` — kit スキーマの検証
-4. `sbx run claude --kit ./.sandbox/kit` — 初回作成と認証（credentials 確認は Approve）。VM 内で `pwd` がホストの絶対パスであること
+4. `sbx run claude --clone --kit ./.sandbox/kit` — 初回作成と認証（credentials 確認は Approve）。VM 内で `git remote -v` / `ls /run/sandbox/source` が clone モードであることを示すこと
 5. `sbx secret set claude-<ディレクトリ名> github` → `sbx secret ls` でスコープが sandbox 単位（グローバルでない）ことを確認
 6. VM 内: `node -v`（24 系）/ `pnpm -v`（11.9.0）/ `cat ~/.config/pnpm/config.yaml`（storeDir が agent の home を指す）/ `/usr/local/bin/chromium-no-sandbox --version`
-7. `pnpm install --frozen-lockfile && pnpm test` が通る
-8. `claude mcp list` に chrome-devtools が出て、スクリーンショットが撮れる
-9. `gh api user` が成功する（`echo "$GH_TOKEN"` が sentinel 値であること = 実値が VM に無いことの確認）。`git ls-remote` / push も試す
+7. `pnpm install --frozen-lockfile && pnpm test` が通る（TTY 無しで purge 確認に阻まれる場合は `CI=true` を付ける）
+8. `claude mcp list` に chrome-devtools が出て、スクリーンショットが撮れる（**local スコープに登録されていると一覧に出ない** — kit は `-s user` で登録する）
+9. `gh api user` が成功する（`echo "$GH_TOKEN"` が sentinel 値であること = 実値が VM に無いことの確認）。`git ls-remote` / `git push --dry-run` も試す
 10. `sbx policy ls` の監査。許可外ドメインへの `curl` が拒否されること
-11. `sbx run codex --kit ./.sandbox/kit` — `cat ~/.codex/config.toml` で `${WORKDIR}` が実パスに展開されていること、MCP が動くこと
-12. `sbx run opencode --kit ./.sandbox/kit` — 起動とタスク実行
+11. `sbx run codex --clone --kit ./.sandbox/kit` — `cat ~/.codex/config.toml` で `${WORKDIR}` が実パスに展開されていること、MCP が動くこと
+12. `sbx run opencode --clone --kit ./.sandbox/kit` — 起動とタスク実行
 13. 一度抜けて再 `sbx run` → 再接続（install が走らない）。`sbx rm` → 再 `run` で install が走る
+14. VM 内でコミットして `git push` → GitHub に反映されること。ホスト側から `git fetch sandbox-claude-<ディレクトリ名>` でも取り出せること
 
 ## トラブルシューティング（認証まわり）
 
@@ -200,13 +226,20 @@ sandbox 内のデータ（`com.docker.sandboxes` 側）は消さないよう注�
 
 spec.yaml は [kit spec reference](https://docs.docker.com/ai/sandboxes/customize/kit-reference/) に基づきます。
 
-**実機検証で判明済み**（claude テンプレート `docker/sandbox-templates:claude-code-docker`）: ベースは Ubuntu 26.04 / arm64、同梱 Node は v22（kit が 24 系へ更新する）、`~/.codex` は空（kit の設定 seed が有効に働く）、agent ユーザーは passwordless sudo + docker グループ。apt の `chromium` は候補なし・`chromium-browser` は snap 移行パッケージのため、kit は Playwright 配布の Chromium を使う。
+**実機検証で判明済み**（claude テンプレート `docker/sandbox-templates:claude-code-docker`）:
+
+- ベースは Ubuntu 26.04 / arm64、同梱 Node は v22（kit が 24 系へ更新する）、`~/.codex` は空（kit の設定 seed が有効に働く）、agent ユーザーは passwordless sudo + docker グループ、VM 内 Docker は 29.7.1
+- apt の `chromium` は候補なし・`chromium-browser` は snap 移行パッケージのため、kit は Playwright 配布の Chromium を使う。実績は **playwright 1.62.1 / chromium-1234（Chromium 151.0.7922.34）** で、spec.yaml はこのバージョンに固定済み
+- `~/.codex/config.toml` の `${WORKDIR}` はワークスペースの絶対パスへ展開される
+- **git push (https) はヘッダ注入で通る** — `format: "token %s"` で `gh api user` / `git push` とも成功。「push はホスト側で行う」というフォールバックは不要
+- ネットワークは deny-by-default が実際に効く（許可外ドメインは 403 `no matching allow rule`）。`GH_TOKEN` の中身は sentinel（`proxy-managed`）で実値は VM に無い
+- **`claude mcp add` の既定スコープは local**（cwd 単位）で、install ステップの cwd はワークスペースとは限らない。既定のまま登録すると `claude mcp list` に出ないため、kit は `-s user` を指定している
 
 残る未確認事項。判明したら spec.yaml とこの節を更新してください:
 
 1. **codex / opencode テンプレートでの同挙動** — 上記の確認は claude テンプレートのみ。特に codex テンプレートが `~/.codex/config.toml` を seed している場合、`onlyIfMissing` により kit 側の設定は入らない
-2. **git push (https) がヘッダ注入で通るか** — git は `Authorization: Basic` を使うため、kit の `format: "token %s"` と形式が合わない可能性がある。通らない場合は「push はホスト側で行う」を初期運用とする
-3. **Playwright のバージョン固定** — 初回成功後に sandbox 内で `npx playwright --version` を確認し、spec.yaml の `playwright@latest`（2 箇所）を実績バージョンに固定する（chrome-devtools-mcp と同じ再現性の方針）
+2. **`sbx rm` を跨いだ secret の永続性** — sandbox 名スコープで登録した secret が sandbox 再作成後も残るかは未確認。作り直したら `gh api user` で再確認すること
+3. **clone モードでの kit 挙動** — 上記の検証は direct モードで実施したもの。`--clone` へ切り替えた初回に、チェックリストを一通り再走させること（特にワークスペースのパス、`${WORKDIR}` の展開先、MCP 登録）
 
 ## 将来フェーズ: devcontainer からのエージェント除去の判断基準
 
