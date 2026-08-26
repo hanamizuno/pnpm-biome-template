@@ -1,13 +1,19 @@
 # Docker Sandboxes (sbx) 用の共有 mixin kit。
 # リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する
 # （--clone は必須。理由は ../README.md「clone モードで運用する」参照）:
-#   sbx run claude-auto    --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
-#   sbx run codex-approve  --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
-#   sbx run opencode       --clone --kit ./.sandbox/kit
+#   sbx run opencode --clone --kit ./.sandbox/kit
+#
 # claude / codex は組み込みエージェントの既定起動コマンドが YOLO のため、
-# entrypoint を差し替える fork kit（../claude-auto, ../codex-approve）を重ねる。
-# mixin は sandbox ブロック（= entrypoint）を持てないので、この kit 単体では
-# 上書きできない。opencode は既定で暗黙のフラグが無いため fork 不要。
+# それを上書きする手順が要る。mixin は sandbox ブロック（= entrypoint /
+# command）を持てないので、この kit 単体では上書きできない。方式は 2 つ:
+#   A) sandbox だけ作って、望みのフラグで exec する（サブスクリプション認証を維持）
+#        sbx create --name claude-auto-<dir> --clone --kit ./.sandbox/kit claude .
+#        sbx exec -it -w "$PWD" claude-auto-<dir> claude --permission-mode auto
+#   B) 起動コマンドを差し替える fork kit を重ねる（OAuth 不可 / API キーが必要）
+#        sbx run claude-auto   --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+#        sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
+# 詳細は ../README.md「YOLO 既定の上書き」。opencode は既定で暗黙のフラグが
+# 無いため、どちらの方式も不要。
 # エージェント別に kit を分けず、エージェント固有のセットアップ（Codex 設定 seed、
 # Claude Code への MCP 登録・Codex プラグイン登録）はガード付きで同居させる —
 # 対象外のエージェントの sandbox に入っても無害（設定は読まれず、登録はスキップされる）。
