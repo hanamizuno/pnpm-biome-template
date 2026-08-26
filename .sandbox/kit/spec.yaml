@@ -115,15 +115,20 @@ setup:
     # claude sandbox を親（オーケストレーター）として、委譲先の Codex / OpenCode
     # CLI を同居させる（devcontainer の post-create.sh と同じ構成の移植）。
     # 自テンプレートに同梱済みの sandbox（codex / opencode 単体実行用）では
+    # バージョンは chrome-devtools-mcp / playwright と同じ方針で固定する
+    # （再現性と supply-chain 対策）。値は clone モードの実機検証で入ったもの。
+    # 更新時は devcontainer 側（post-create.sh）と揃えて上げる。
     # command -v ガードで no-op になるため、全 sandbox に適用しても無害。
     - description: Codex CLI / OpenCode CLI（テンプレート同梱済みならスキップ）
       command: |
         set -eu
-        command -v codex >/dev/null 2>&1 || npm install -g @openai/codex
-        command -v opencode >/dev/null 2>&1 || npm install -g opencode-ai
+        command -v codex >/dev/null 2>&1 || npm install -g @openai/codex@0.149.1
+        command -v opencode >/dev/null 2>&1 || npm install -g opencode-ai@1.18.23
 
     # Codex を Claude Code のプラグインとして登録し、Claude Code から必要に応じて
     # Codex に委譲できるようにする（codex-rescue サブエージェント + /codex スキル）。
+    # なお marketplace 経由の install はバージョン指定ができないため、ここだけは
+    # 常に最新が入る（実機検証時は codex@openai-codex 1.0.6）。
     # claude が無い sandbox ではスキップ。登録済みならスキップして冪等に保つ。
     - description: Claude Code への Codex プラグイン登録（claude sandbox のみ）
       user: "1000"
@@ -183,12 +188,19 @@ permissions:
       - playwright.download.prss.microsoft.com
       # Claude Code
       - api.anthropic.com
+      # VM 内で対話ログイン（OAuth）が必要になった場合の宛先。デフォルト
+      # ポリシーでは拒否される（実機検証で 403 を確認）。API キー等の別 auth
+      # source が入っている sandbox では使われない。
+      - console.anthropic.com
+      - claude.ai
       - statsig.anthropic.com
       # Codex
       - api.openai.com
       - auth.openai.com
       - chatgpt.com
-      # OpenCode（モデルカタログ）
+      # OpenCode（モデルカタログ + 本体の認証・更新。opencode.ai も
+      # デフォルトでは拒否されるため明示的に許可する）
+      - opencode.ai
       - models.dev
       # GitHub
       - github.com
@@ -241,6 +253,9 @@ agentInstructions:
     - パッケージ管理は pnpm（corepack 管理）。初回は `pnpm install --frozen-lockfile`。
       TTY が無いため、pnpm が node_modules の purge 確認を求めて止まる場合は
       `CI=true` を付けて実行する。
+    - バックグラウンドのプロセスを止めるときに `pkill -f <パターン>` を使わないこと。
+      コマンドライン全体がパターンを含むため自分自身のシェルにマッチして落ちる。
+      `PID=$(pgrep -f '<パターン>' | head -1); kill "$PID"` のように PID 経由で止める。
     - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。
     - GitHub 認証はホスト側プロキシが自動でヘッダ注入する。環境変数 GH_TOKEN の
       中身は sentinel（実値ではない）で、トークンの実値はこの環境に存在しない。

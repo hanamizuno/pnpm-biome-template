@@ -51,8 +51,8 @@ cd <このリポジトリの checkout>
 sbx run claude --clone --kit ./.sandbox/kit
 
 # 2) GitHub の fine-grained PAT を、その sandbox だけにスコープして登録
-#    （第 1 引数は自動命名された sandbox 名。`sbx ls` で確認できる。
-#      名前 `github` は kit の credentials の service 名と対応する。
+#    （`github` は kit の credentials の service 名と対応する。`--sandbox` には
+#      自動命名された sandbox 名を渡す（`sbx ls` で確認できる）。
 #      sandbox-scoped の secret は実行中の sandbox にも即時反映される。
 #      スコープ方針は .devcontainer/README.md「GitHub 権限の制限（PAT）」と同じ —
 #      リポジトリ単位のスコープ限定 PAT を、そのリポジトリの sandbox にだけ渡す。
@@ -66,7 +66,7 @@ sbx run opencode --clone --kit ./.sandbox/kit
 
 同一ワークスペース・同一エージェントで複数の sandbox を並行させたい場合のみ `--name` で明示的に名前を付けます。
 
-> **`-g`（グローバル）は使わない:** `sbx secret set -g github` はユーザー全体のグローバル登録で、**以後作成するすべての sandbox（他リポジトリ含む）に注入され得ます**。`github` のような組み込みサービスは kit の宣言が無くても provenance で自動注入されるため、グローバル登録は「リポジトリごとに権限を区切る」本テンプレートの方針に反します。sandbox 名スコープで登録してください（グローバル値があっても sandbox-scoped が優先されます）。なお `sbx secret set` の引数形式は CLI バージョンで異なることがあります（`sbx secret set <sandbox名> <service>` / `sbx secret set <service> --sandbox <sandbox名>`）— `sbx secret set --help` で確認してください。
+> **`-g`（グローバル）は使わない:** `sbx secret set -g github` はユーザー全体のグローバル登録で、**以後作成するすべての sandbox（他リポジトリ含む）に注入され得ます**。`github` のような組み込みサービスは kit の宣言が無くても provenance で自動注入されるため、グローバル登録は「リポジトリごとに権限を区切る」本テンプレートの方針に反します。sandbox 名スコープで登録してください（グローバル値があっても sandbox-scoped が優先されます）。なお `sbx secret set` の引数形式は CLI バージョンで異なります。本 README は現行の `sbx secret set <service> --sandbox <sandbox名> [-t <token>]` 形式で記載しています（旧 CLI の `sbx secret set <sandbox名> <service>` 形式で動く環境もあります）— 差異が出たら `sbx secret set --help` で確認してください。
 
 初回はエージェントごとの認証（Claude はブラウザログイン等）が必要です。認証を含む sandbox 内の状態は `sbx rm` するまで永続します。
 
@@ -125,6 +125,16 @@ sbx policy ls
 ```
 
 kit の `permissions.network.allow` は**デフォルトポリシーへの追加**であり、デフォルト側の広い許可を削るものではありません。実効ポリシーを絞るのはホスト側の `sbx policy` 操作で行います（deny は allow より優先されるため、kit に `permissions.network.deny` を足して特定ドメインを塞ぐこともできます）。kit の allow（npm registry / 各エージェントの API / GitHub / apt リポジトリ）だけで回る状態が理想です。
+VM 内から実際にプローブすると、許可されているかどうかは応答の中身で判別できます（拒否は HTTP 403 + `Blocked by network policy` 本文）:
+
+```bash
+curl -s https://example.com/ | head -1
+# Blocked by network policy: domain example.com:443
+#   detail: no matching allow rule — blocked by default deny policy
+```
+
+実機検証で判明した点として、**デフォルトポリシーは `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していません**。前者はエージェントの対話ログイン（OAuth）、後者は OpenCode の認証・更新で必要になり得るため、kit の allow に追加しています。テレメトリ系（`sentry.io` 等）は拒否のままが望ましい状態です。
+
 
 ## タスク用シークレット
 
@@ -134,7 +144,7 @@ devcontainer の pass-cli 方式は**この環境には持ち込みません**�
 # ホスト側で、対象の sandbox にスコープして登録
 # （名前は kit の credentials の service 名に合わせる。グローバル登録 -g は
 #   他リポジトリの sandbox にも波及するため使わない）
-sbx secret set <sandbox名> example
+sbx secret set example --sandbox <sandbox名> -t "<API キー>"
 ```
 
 その上で kit の `credentials` にエントリを追加すると（spec.yaml 内にコメントアウトの雛形あり）、指定ドメイン宛のリクエストに限りホスト側プロキシがヘッダを注入します。VM 内の対応する環境変数（`apiKey.name`）には sentinel 値が入り、実値は送信直前にプロキシがヘッダを書き換える形でのみ使われます。kit の変更反映は sandbox の作り直し（`sbx rm` → 再 `run`）が必要ですが、sandbox-scoped の secret 自体は実行中でも即時反映されます。
@@ -175,7 +185,7 @@ sandbox はテンプレートイメージ単位（= 親エージェント単位�
 
 ## ホスト試用チェックリスト
 
-併存期間の評価に使う確認項目です。上から順に:
+併存期間の評価に使う確認項目です。上から順に（**4・6〜12 は clone モードの claude sandbox で実施済み** — 詳細は「既知の未確認事項」参照。残るホスト側項目は 1〜3・5・13・14）:
 
 1. `sbx version` — インストール確認
 2. `sbx login` — Docker アカウントへのサインイン（ブラウザのデバイスコードフロー）
@@ -234,6 +244,16 @@ spec.yaml は [kit spec reference](https://docs.docker.com/ai/sandboxes/customiz
 - **git push (https) はヘッダ注入で通る** — `format: "token %s"` で `gh api user` / `git push` とも成功。「push はホスト側で行う」というフォールバックは不要
 - ネットワークは deny-by-default が実際に効く（許可外ドメインは 403 `no matching allow rule`）。`GH_TOKEN` の中身は sentinel（`proxy-managed`）で実値は VM に無い
 - **`claude mcp add` の既定スコープは local**（cwd 単位）で、install ステップの cwd はワークスペースとは限らない。既定のまま登録すると `claude mcp list` に出ないため、kit は `-s user` を指定している
+**clone モードでの再検証（`sbx run claude --clone --kit ./.sandbox/kit`）で判明済み**:
+
+- チェックリスト 4・6〜12 を再走して全項目パス。clone モード固有の問題は出ていない
+- ワークスペースのパスは **clone モードでもホストの絶対パスをミラーする**（`/Users/.../pnpm-biome-template`）。`${WORKDIR}` もそのパスへ展開されるため、`~/.codex/config.toml` の `[projects."..."]` は direct モードと同じ結果になる。テンプレート由来の `/home/agent/workspace` は空ディレクトリとして残るだけで実害はない
+- 導入結果: Node v24.19.0（同梱 v22 から kit が更新）/ pnpm 11.9.0（`packageManager` と一致）/ storeDir は `/home/agent/.pnpm-store`（**作業ツリーに `.pnpm-store` は作られない**）/ Chromium 151.0.7922.34 / `chrome-devtools-mcp` 1.7.0 / `@openai/codex` 0.149.1 / `opencode-ai` 1.18.23 / `codex@openai-codex` プラグイン 1.0.6
+- `claude mcp list` に chrome-devtools が user スコープで出て接続 OK。**MCP 経由のスクリーンショットで日本語も豆腐にならない**（`fonts-noto-cjk` が効いている）
+- `pnpm install --frozen-lockfile` → `pnpm release-check` が `CI=true` 付きで通る
+- **デフォルトポリシーが `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していない**ことを実測（403）。kit の allow に追加済み（「ネットワークポリシーの監査」参照）
+- VM 内で `pkill -f <パターン>` を使うと自分自身のシェルにマッチして落ちる。`agentInstructions` に PID 経由で止めるよう明記した
+
 
 残る未確認事項。判明したら spec.yaml とこの節を更新してください:
 
