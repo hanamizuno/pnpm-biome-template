@@ -1,9 +1,13 @@
 # Docker Sandboxes (sbx) 用の共有 mixin kit。
 # リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する
 # （--clone は必須。理由は ../README.md「clone モードで運用する」参照）:
-#   sbx run claude   --clone --kit ./.sandbox/kit
-#   sbx run codex    --clone --kit ./.sandbox/kit
-#   sbx run opencode --clone --kit ./.sandbox/kit
+#   sbx run claude-auto    --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+#   sbx run codex-approve  --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
+#   sbx run opencode       --clone --kit ./.sandbox/kit
+# claude / codex は組み込みエージェントの既定起動コマンドが YOLO のため、
+# entrypoint を差し替える fork kit（../claude-auto, ../codex-approve）を重ねる。
+# mixin は sandbox ブロック（= entrypoint）を持てないので、この kit 単体では
+# 上書きできない。opencode は既定で暗黙のフラグが無いため fork 不要。
 # エージェント別に kit を分けず、エージェント固有のセットアップ（Codex 設定 seed、
 # Claude Code への MCP 登録・Codex プラグイン登録）はガード付きで同居させる —
 # 対象外のエージェントの sandbox に入っても無害（設定は読まれず、登録はスキップされる）。
@@ -115,10 +119,10 @@ setup:
     # claude sandbox を親（オーケストレーター）として、委譲先の Codex / OpenCode
     # CLI を同居させる（devcontainer の post-create.sh と同じ構成の移植）。
     # 自テンプレートに同梱済みの sandbox（codex / opencode 単体実行用）では
+    # command -v ガードで no-op になるため、全 sandbox に適用しても無害。
     # バージョンは chrome-devtools-mcp / playwright と同じ方針で固定する
     # （再現性と supply-chain 対策）。値は clone モードの実機検証で入ったもの。
     # 更新時は devcontainer 側（post-create.sh）と揃えて上げる。
-    # command -v ガードで no-op になるため、全 sandbox に適用しても無害。
     - description: Codex CLI / OpenCode CLI（テンプレート同梱済みならスキップ）
       command: |
         set -eu
@@ -127,9 +131,9 @@ setup:
 
     # Codex を Claude Code のプラグインとして登録し、Claude Code から必要に応じて
     # Codex に委譲できるようにする（codex-rescue サブエージェント + /codex スキル）。
+    # claude が無い sandbox ではスキップ。登録済みならスキップして冪等に保つ。
     # なお marketplace 経由の install はバージョン指定ができないため、ここだけは
     # 常に最新が入る（実機検証時は codex@openai-codex 1.0.6）。
-    # claude が無い sandbox ではスキップ。登録済みならスキップして冪等に保つ。
     - description: Claude Code への Codex プラグイン登録（claude sandbox のみ）
       user: "1000"
       command: |
@@ -151,8 +155,12 @@ setup:
         #:schema https://developers.openai.com/codex/config-schema.json
 
         # sandbox（microVM）自体が自律エージェント実行の隔離境界。
-        # 書き込みはワークスペースに限定しつつ、対話的な承認待ちは無効化する。
-        approval_policy = "never"
+        # 書き込みはワークスペースに限定しつつ、エスカレーションされた承認要求は
+        # 人間ではなく自動レビューへ回す（CLI の `--approve-for-me` 相当）。
+        # 承認を一切求めない `approval_policy = "never"` と違い、サンドボックス外への
+        # 書き込みやネットワーク遮断などの逸脱はリスク評価を経てから許可/拒否される。
+        approval_policy = "on-request"
+        approvals_reviewer = "auto_review"
         sandbox_mode = "workspace-write"
         project_doc_max_bytes = 65536
 
@@ -188,20 +196,20 @@ permissions:
       - playwright.download.prss.microsoft.com
       # Claude Code
       - api.anthropic.com
+      - statsig.anthropic.com
       # VM 内で対話ログイン（OAuth）が必要になった場合の宛先。デフォルト
       # ポリシーでは拒否される（実機検証で 403 を確認）。API キー等の別 auth
       # source が入っている sandbox では使われない。
       - console.anthropic.com
       - claude.ai
-      - statsig.anthropic.com
       # Codex
       - api.openai.com
       - auth.openai.com
       - chatgpt.com
       # OpenCode（モデルカタログ + 本体の認証・更新。opencode.ai も
       # デフォルトでは拒否されるため明示的に許可する）
-      - opencode.ai
       - models.dev
+      - opencode.ai
       # GitHub
       - github.com
       - api.github.com
@@ -253,10 +261,10 @@ agentInstructions:
     - パッケージ管理は pnpm（corepack 管理）。初回は `pnpm install --frozen-lockfile`。
       TTY が無いため、pnpm が node_modules の purge 確認を求めて止まる場合は
       `CI=true` を付けて実行する。
+    - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。
     - バックグラウンドのプロセスを止めるときに `pkill -f <パターン>` を使わないこと。
       コマンドライン全体がパターンを含むため自分自身のシェルにマッチして落ちる。
       `PID=$(pgrep -f '<パターン>' | head -1); kill "$PID"` のように PID 経由で止める。
-    - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。
     - GitHub 認証はホスト側プロキシが自動でヘッダ注入する。環境変数 GH_TOKEN の
       中身は sentinel（実値ではない）で、トークンの実値はこの環境に存在しない。
       値を読む・探す・表示する必要は一切ない。

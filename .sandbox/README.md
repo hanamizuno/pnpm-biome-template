@@ -42,13 +42,17 @@ sbx login
 
 ```bash
 # 1) リポジトリの checkout ディレクトリで、kit を適用してエージェントを起動。
-#    sandbox 名は自動で `<agent>-<ディレクトリ名>`（例: claude-pnpm-biome-template）
-#    になり、エージェントごと・リポジトリごとに別 sandbox になる。
+#    位置引数は fork kit の名前（claude-auto）で、共有 mixin（./.sandbox/kit）と
+#    fork kit（./.sandbox/claude-auto）を --kit で 2 つ重ねる。
+#    fork kit を使う理由は後述「YOLO 既定の上書き」。
+#    sandbox 名は自動で `<agent>-<ディレクトリ名>`
+#    （例: claude-auto-pnpm-biome-template）になり、
+#    エージェントごと・リポジトリごとに別 sandbox になる。
 #    起動時に kit の credentials 利用確認が出るので Approve する
 #    （ここで No にするとプロキシ注入が効かない）。
 #    --clone は必須（理由は後述「clone モードで運用する」）。
 cd <このリポジトリの checkout>
-sbx run claude --clone --kit ./.sandbox/kit
+sbx run claude-auto --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
 
 # 2) GitHub の fine-grained PAT を、その sandbox だけにスコープして登録
 #    （`github` は kit の credentials の service 名と対応する。`--sandbox` には
@@ -57,10 +61,12 @@ sbx run claude --clone --kit ./.sandbox/kit
 #      スコープ方針は .devcontainer/README.md「GitHub 権限の制限（PAT）」と同じ —
 #      リポジトリ単位のスコープ限定 PAT を、そのリポジトリの sandbox にだけ渡す。
 #      値は VM に入らず、プロキシが GitHub 宛リクエストのヘッダにのみ注入する）
-sbx secret set claude-<ディレクトリ名> github
+sbx secret set github --sandbox claude-auto-<ディレクトリ名> -t "<fine-grained PAT>"
 
-# Codex / OpenCode も同様（sandbox ごとに secret を登録する）
-sbx run codex --clone --kit ./.sandbox/kit
+# Codex / OpenCode も同様（sandbox ごとに secret を登録する）。
+# Codex も既定が YOLO のため fork kit を重ねる。OpenCode は既定で暗黙のフラグが
+# 無いため共有 mixin だけでよい。
+sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
 sbx run opencode --clone --kit ./.sandbox/kit
 ```
 
@@ -78,6 +84,41 @@ kit（[kit/spec.yaml](kit/spec.yaml)）が sandbox 作成時にセットアッ�
 - Codex の初期設定 seed（`~/.codex/config.toml`。既存があれば上書きしない）
 - 委譲先 CLI（Codex / OpenCode）の導入と、Claude Code への Codex プラグイン登録（下記「オーケストレーション」参照。テンプレート同梱済み・claude 不在の sandbox では no-op）
 - ネットワーク許可リストの追加と GitHub PAT のヘッダ注入設定
+
+## YOLO 既定の上書き
+
+sbx の組み込みエージェントは**既定の起動コマンドが YOLO**です:
+
+| エージェント | sbx の既定起動コマンド |
+|---|---|
+| `claude` | `claude --dangerously-skip-permissions` |
+| `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
+| `opencode` | `opencode`（暗黙のフラグ無し） |
+
+microVM が隔離境界とはいえ、ワークスペースの破壊やネットワーク越しの操作まで無制限にする理由は無いため、本テンプレートでは既定を次に差し替えます:
+
+| エージェント | 差し替え後 | 意味 |
+|---|---|---|
+| `claude-auto` | `claude --permission-mode auto` | 権限判断はモデルに委ねるが bypass はしない |
+| `codex-approve` | `codex --approve-for-me` | workspace-write を保ち、エスカレーションされた承認要求を自動レビューへ回す |
+
+**`--` によるパススルーでは上書きできません。** `sbx run claude -- --permission-mode auto` のように渡した引数は、先頭がフラグの場合**既定フラグの後ろに追加される**だけで、`--dangerously-skip-permissions` は残ります。確実に差し替えるには `sandbox.entrypoint` を置き換える必要があり、これは `kind: sandbox` の kit にしか書けません（mixin kit は `sandbox:` ブロックを持てない）。そのため共有 mixin（[kit/spec.yaml](kit/spec.yaml)）とは別に、組み込みエージェントを `extends` するだけの薄い fork kit を用意しています:
+
+- [claude-auto/spec.yaml](claude-auto/spec.yaml) — `extends: claude`
+- [codex-approve/spec.yaml](codex-approve/spec.yaml) — `extends: codex`
+
+`--kit` は複数回指定でき、`sbx run` の位置引数は fork kit の `name:` を渡します:
+
+```bash
+sbx run claude-auto   --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
+```
+
+fork kit は image・credentials・ネットワーク許可・volume・MCP 連携・エージェント指示を親から継承するため、上書きするのは entrypoint だけです。
+
+> **認証の制約:** 組み込みエージェントを `extends` した kit では**プロキシ管理の OAuth が使えません**。初回起動前にホストで API キーを登録してください（`sbx secret set anthropic` / `sbx secret set openai`）。VM 内で `/login`（OAuth）を使うと、**実トークンが VM 内に保存されます** — 「実値を VM に入れない」という本テンプレートの方針から外れるので避けてください。ChatGPT サブスクリプション課金で Codex を使いたい場合は、この制約と引き換えに fork せず素の `codex`（= YOLO 既定）を使うか、VM 内ログインを許容するかの判断になります。
+
+なお Claude Code の `.claude/settings.json`（`permissions.defaultMode: "auto"`）と Codex の `~/.codex/config.toml` seed（`approval_policy = "on-request"` / `approvals_reviewer = "auto_review"`）も同じ方針に揃えてありますが、**起動時フラグの方が強い**ため、sbx では fork kit が実効値を決めます。設定ファイル側は、devcontainer やホストでの実行、および Claude から Codex へ委譲したときのように entrypoint を経由しない起動で効きます。
 
 ## 日常運用
 
@@ -104,7 +145,7 @@ clone モードではワークスペースが **VM 内の独立した git クロ
 - push せずにホストへ取り出したい場合は、ホスト側で sandbox が公開する git-daemon から取得します（sandbox 起動中のみ有効）:
 
   ```bash
-  git fetch sandbox-claude-<ディレクトリ名>
+  git fetch sandbox-claude-auto-<ディレクトリ名>
   ```
 
 - 逆に、**sandbox 作成後にホストへ積んだコミット**を VM 内へ取り込むには、read-only で bind mount されたホストリポジトリから fetch します（`origin` は GitHub を指すため、ホストの未 push コミットは含まれません）:
@@ -125,6 +166,7 @@ sbx policy ls
 ```
 
 kit の `permissions.network.allow` は**デフォルトポリシーへの追加**であり、デフォルト側の広い許可を削るものではありません。実効ポリシーを絞るのはホスト側の `sbx policy` 操作で行います（deny は allow より優先されるため、kit に `permissions.network.deny` を足して特定ドメインを塞ぐこともできます）。kit の allow（npm registry / 各エージェントの API / GitHub / apt リポジトリ）だけで回る状態が理想です。
+
 VM 内から実際にプローブすると、許可されているかどうかは応答の中身で判別できます（拒否は HTTP 403 + `Blocked by network policy` 本文）:
 
 ```bash
@@ -134,7 +176,6 @@ curl -s https://example.com/ | head -1
 ```
 
 実機検証で判明した点として、**デフォルトポリシーは `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していません**。前者はエージェントの対話ログイン（OAuth）、後者は OpenCode の認証・更新で必要になり得るため、kit の allow に追加しています。テレメトリ系（`sentry.io` 等）は拒否のままが望ましい状態です。
-
 
 ## タスク用シークレット
 
@@ -177,8 +218,8 @@ claude mcp list                      # chrome-devtools が登録されている�
 sandbox はテンプレートイメージ単位（= 親エージェント単位）ですが、kit が委譲先の CLI を同居させるため、**claude sandbox は Claude Code を親にしたオーケストレーション環境**として使えます:
 
 - kit は Codex CLI / OpenCode CLI をインストールし（テンプレート同梱済みならスキップ）、Codex を Claude Code のプラグイン（codex-rescue サブエージェント + `/codex` スキル）として登録します — devcontainer の `post-create.sh` と同じ構成です。
-- `~/.codex/config.toml` の seed（`approval_policy = "never"` / `sandbox_mode = "workspace-write"`）も共通なので、Claude からの委譲実行が承認待ちで止まりません。
-- 委譲先の認証は 2 通り: sandbox 内で対話ログイン（`codex login` 等。`sbx rm` まで永続）、または組み込みサービスのプロキシ注入（`sbx secret set <sandbox名> openai` — API キーの実値を VM に入れない。ChatGPT サブスクリプション認証を使う場合は対話ログイン一択）。
+- `~/.codex/config.toml` の seed（`approval_policy = "on-request"` / `approvals_reviewer = "auto_review"` / `sandbox_mode = "workspace-write"` — CLI の `--approve-for-me` 相当）も共通なので、Claude からの委譲実行が承認待ちで止まりません。エスカレーションされた要求は人間ではなく自動レビューへ回ります。
+- 委譲先の認証は 2 通り: sandbox 内で対話ログイン（`codex login` 等。`sbx rm` まで永続）、または組み込みサービスのプロキシ注入（`sbx secret set openai --sandbox <sandbox名>` — API キーの実値を VM に入れない。ChatGPT サブスクリプション認証を使う場合は対話ログイン一択）。
 - codex / opencode 単体実行用の sandbox では、これらのステップは `command -v` ガードで no-op になります。
 
 なお **sandbox をまたいだ協調は基本できません**（ファイルシステム・ネットワークとも隔離。clone モードでは各 sandbox が独立したクローンを持つため、受け渡しは GitHub 経由の push / fetch になります）。密結合のオーケストレーションは 1 つの claude sandbox に同居させてください。
@@ -189,18 +230,18 @@ sandbox はテンプレートイメージ単位（= 親エージェント単位�
 
 1. `sbx version` — インストール確認
 2. `sbx login` — Docker アカウントへのサインイン（ブラウザのデバイスコードフロー）
-3. `sbx kit validate ./.sandbox/kit` — kit スキーマの検証
-4. `sbx run claude --clone --kit ./.sandbox/kit` — 初回作成と認証（credentials 確認は Approve）。VM 内で `git remote -v` / `ls /run/sandbox/source` が clone モードであることを示すこと
-5. `sbx secret set claude-<ディレクトリ名> github` → `sbx secret ls` でスコープが sandbox 単位（グローバルでない）ことを確認
+3. `sbx kit validate ./.sandbox/kit` / `sbx kit validate ./.sandbox/claude-auto` / `sbx kit validate ./.sandbox/codex-approve` — kit スキーマの検証（fork kit 2 つは未検証。`extends:` の解決も含めてここで確認する）
+4. `sbx run claude-auto --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto` — 初回作成と認証（credentials 確認は Approve）。VM 内で `git remote -v` / `ls /run/sandbox/source` が clone モードであること、`ps -eo args | grep claude` が `claude --permission-mode auto` を示すことを確認
+5. `sbx secret set github --sandbox claude-auto-<ディレクトリ名>` → `sbx secret ls` でスコープが sandbox 単位（グローバルでない）ことを確認
 6. VM 内: `node -v`（24 系）/ `pnpm -v`（11.9.0）/ `cat ~/.config/pnpm/config.yaml`（storeDir が agent の home を指す）/ `/usr/local/bin/chromium-no-sandbox --version`
 7. `pnpm install --frozen-lockfile && pnpm test` が通る（TTY 無しで purge 確認に阻まれる場合は `CI=true` を付ける）
 8. `claude mcp list` に chrome-devtools が出て、スクリーンショットが撮れる（**local スコープに登録されていると一覧に出ない** — kit は `-s user` で登録する）
 9. `gh api user` が成功する（`echo "$GH_TOKEN"` が sentinel 値であること = 実値が VM に無いことの確認）。`git ls-remote` / `git push --dry-run` も試す
 10. `sbx policy ls` の監査。許可外ドメインへの `curl` が拒否されること
-11. `sbx run codex --clone --kit ./.sandbox/kit` — `cat ~/.codex/config.toml` で `${WORKDIR}` が実パスに展開されていること、MCP が動くこと
+11. `sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve` — `cat ~/.codex/config.toml` で `${WORKDIR}` が実パスに展開されていること、MCP が動くこと、`ps -eo args | grep codex` が `codex --approve-for-me` を示すこと
 12. `sbx run opencode --clone --kit ./.sandbox/kit` — 起動とタスク実行
 13. 一度抜けて再 `sbx run` → 再接続（install が走らない）。`sbx rm` → 再 `run` で install が走る
-14. VM 内でコミットして `git push` → GitHub に反映されること。ホスト側から `git fetch sandbox-claude-<ディレクトリ名>` でも取り出せること
+14. VM 内でコミットして `git push` → GitHub に反映されること。ホスト側から `git fetch sandbox-claude-auto-<ディレクトリ名>` でも取り出せること
 
 ## トラブルシューティング（認証まわり）
 
@@ -244,6 +285,7 @@ spec.yaml は [kit spec reference](https://docs.docker.com/ai/sandboxes/customiz
 - **git push (https) はヘッダ注入で通る** — `format: "token %s"` で `gh api user` / `git push` とも成功。「push はホスト側で行う」というフォールバックは不要
 - ネットワークは deny-by-default が実際に効く（許可外ドメインは 403 `no matching allow rule`）。`GH_TOKEN` の中身は sentinel（`proxy-managed`）で実値は VM に無い
 - **`claude mcp add` の既定スコープは local**（cwd 単位）で、install ステップの cwd はワークスペースとは限らない。既定のまま登録すると `claude mcp list` に出ないため、kit は `-s user` を指定している
+
 **clone モードでの再検証（`sbx run claude --clone --kit ./.sandbox/kit`）で判明済み**:
 
 - チェックリスト 4・6〜12 を再走して全項目パス。clone モード固有の問題は出ていない
@@ -253,13 +295,14 @@ spec.yaml は [kit spec reference](https://docs.docker.com/ai/sandboxes/customiz
 - `pnpm install --frozen-lockfile` → `pnpm release-check` が `CI=true` 付きで通る
 - **デフォルトポリシーが `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していない**ことを実測（403）。kit の allow に追加済み（「ネットワークポリシーの監査」参照）
 - VM 内で `pkill -f <パターン>` を使うと自分自身のシェルにマッチして落ちる。`agentInstructions` に PID 経由で止めるよう明記した
-
+- **組み込み claude テンプレートの既定起動コマンドが `claude --dangerously-skip-permissions` であることを VM 内の `ps` で実測**。共有 mixin だけでは上書きできないため fork kit を追加した（「YOLO 既定の上書き」参照）
 
 残る未確認事項。判明したら spec.yaml とこの節を更新してください:
 
 1. **codex / opencode テンプレートでの同挙動** — 上記の確認は claude テンプレートのみ。特に codex テンプレートが `~/.codex/config.toml` を seed している場合、`onlyIfMissing` により kit 側の設定は入らない
 2. **`sbx rm` を跨いだ secret の永続性** — sandbox 名スコープで登録した secret が sandbox 再作成後も残るかは未確認。作り直したら `gh api user` で再確認すること
-3. **clone モードでの kit 挙動** — 上記の検証は direct モードで実施したもの。`--clone` へ切り替えた初回に、チェックリストを一通り再走させること（特にワークスペースのパス、`${WORKDIR}` の展開先、MCP 登録）
+3. **ホスト側でしか確認できない項目**（VM 内に `sbx` は無いため未実施）— チェックリスト 5（`sbx secret ls` のスコープ）・13（再接続で install が走らない / `sbx rm` 後は走る）・14 後半（`git fetch sandbox-claude-auto-<ディレクトリ名>`）
+4. **fork kit（`claude-auto` / `codex-approve`）は未検証** — 現在の sandbox は共有 mixin のみで作られており（= 既定の YOLO 起動）、fork kit を通した起動はまだ試していません。次に `sbx rm` → 再作成するときに、(a) `sbx kit validate` が通ること、(b) mixin と fork kit の `--kit` 二重指定が両方適用されること、(c) `ps` の起動引数が差し替わっていること、(d) OAuth 非対応の制約（`sbx secret set anthropic` / `openai` が必要か、実際にどこで詰まるか）を確認してください
 
 ## 将来フェーズ: devcontainer からのエージェント除去の判断基準
 

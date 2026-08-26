@@ -109,6 +109,8 @@ pnpm update
 ├── compose.yml              # 本番用 Docker Compose
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .vscode/                 # VS Code 設定（biome を既定フォーマッタに、保存時に fixAll）
+├── .claude/
+│   └── settings.json        # Claude Code のプロジェクト設定（既定の権限モードを auto に）
 ├── .devcontainer/
 │   ├── devcontainer.json    # Dev Container 設定（compose.yaml を参照。AI エージェントツールは Features で注入）
 │   ├── compose.yaml         # devcontainer 用 compose 定義（固定名 volume で認証永続化・node_modules 分離。compose.local.yaml でローカルオーバーライド）
@@ -118,8 +120,12 @@ pnpm update
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
 ├── .sandbox/
 │   ├── README.md            # Docker Sandboxes（sbx）運用ドキュメント（devcontainer と併存、ホストで実行）
-│   └── kit/
-│       └── spec.yaml        # sbx 用共有 mixin kit（Node + pnpm + Chromium + MCP + ネットワーク/credential ルール）
+│   ├── kit/
+│   │   └── spec.yaml        # sbx 用共有 mixin kit（Node + pnpm + Chromium + MCP + ネットワーク/credential ルール）
+│   ├── claude-auto/
+│   │   └── spec.yaml        # claude の fork kit（既定の YOLO 起動を --permission-mode auto に差し替え）
+│   └── codex-approve/
+│       └── spec.yaml        # codex の fork kit（既定の YOLO 起動を --approve-for-me に差し替え）
 └── .github/
     ├── dependabot.yml       # GitHub Actions / Docker / Dev Container の自動更新（7 日 cooldown）
     ├── labeler.yml          # PR 自動ラベリングのパス定義（label_pr.yml が使用）

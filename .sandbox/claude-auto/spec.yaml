@@ -1,0 +1,29 @@
+# Docker Sandboxes の組み込み `claude` エージェントの fork。
+# 既定の起動コマンドを YOLO から auto モードへ差し替えるためだけの kit。
+#
+# sbx の claude テンプレートは既定で `claude --dangerously-skip-permissions`
+# を起動する（= 権限チェックを全面的に飛ばす）。`--` によるパススルーは
+# 既定フラグの「後ろに追加」されるだけで打ち消せないため、上書きするには
+# entrypoint を差し替えるしかない。entrypoint は sandbox ブロックにしか
+# 書けず、mixin kit（../kit/spec.yaml）は sandbox ブロックを持てないため、
+# 共有 mixin とは別に本 kit を用意している。
+#
+# 使い方（ホスト側。agent 位置引数は本 kit の name、--kit は 2 つ重ねる）:
+#   sbx run claude-auto --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+#
+# 注意: 組み込み claude を extends した kit ではプロキシ管理の OAuth が
+# 使えない。初回起動前にホストで `sbx secret set anthropic` が必要
+# （詳細は ../README.md「YOLO 既定の上書き」）。
+#
+# スキーマ: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
+schemaVersion: "2"
+kind: sandbox
+name: claude-auto
+displayName: Claude Code (auto mode)
+description: Claude Code を auto 権限モードで起動する claude の fork
+extends: claude
+
+sandbox:
+  # 継承した entrypoint（claude --dangerously-skip-permissions）を置き換える。
+  # auto は権限判断をモデルに委ねつつ、bypass と違って歯止めを残すモード。
+  entrypoint: [claude, "--permission-mode", "auto"]

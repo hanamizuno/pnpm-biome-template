@@ -1,0 +1,34 @@
+# Docker Sandboxes の組み込み `codex` エージェントの fork。
+# 既定の起動コマンドを YOLO から「approve for me」へ差し替えるためだけの kit。
+#
+# sbx の codex テンプレートは既定で
+# `codex --dangerously-bypass-approvals-and-sandbox` を起動する（= 承認も
+# サンドボックスも無し）。`--` によるパススルーは既定フラグの「後ろに追加」
+# されるだけで打ち消せないため、上書きするには entrypoint を差し替えるしかない。
+# entrypoint は sandbox ブロックにしか書けず、mixin kit（../kit/spec.yaml）は
+# sandbox ブロックを持てないため、共有 mixin とは別に本 kit を用意している。
+#
+# 使い方（ホスト側。agent 位置引数は本 kit の name、--kit は 2 つ重ねる）:
+#   sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
+#
+# 注意: 組み込みエージェントを extends した kit ではプロキシ管理の OAuth が
+# 使えない。ChatGPT サブスクリプション認証ではなく API キーを
+# `sbx secret set openai` でホストに登録してから起動すること
+# （詳細は ../README.md「YOLO 既定の上書き」）。
+#
+# スキーマ: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
+schemaVersion: "2"
+kind: sandbox
+name: codex-approve
+displayName: Codex (approve for me)
+description: Codex を approve-for-me モードで起動する codex の fork
+extends: codex
+
+sandbox:
+  # 継承した entrypoint（codex --dangerously-bypass-approvals-and-sandbox）を
+  # 置き換える。--approve-for-me は workspace-write サンドボックスを保ったまま、
+  # エスカレーションされた承認要求を人間ではなく自動レビューへ回すモード。
+  # 共有 mixin が seed する ~/.codex/config.toml の
+  # approval_policy = "on-request" / approvals_reviewer = "auto_review" と同じ設定で、
+  # こちらは起動時フラグとして明示する（Claude からの委譲実行には config 側が効く）。
+  entrypoint: [codex, "--approve-for-me"]
