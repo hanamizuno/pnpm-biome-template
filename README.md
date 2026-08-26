@@ -15,6 +15,7 @@
 - Dockerfile / GitHub Actions 自体のリント（hadolint / actionlint / zizmor）
 - VS Code Dev Containers: AI エージェントツールチェーン（Claude Code CLI、Codex CLI、GitHub CLI、共通ユーティリティ）を [Dev Container Features](https://containers.dev/implementors/features/) と post-create セットアップで重ねて注入
 - Chrome DevTools MCP + headless Chromium: エージェントがコンテナ内で画面の見た目をデバッグ（スクリーンショット・コンソール・ネットワーク確認）
+- [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)（sbx）用 kit: microVM + deny-by-default ネットワーク + credential 非搬入の、より強い隔離でエージェントを実行（`.sandbox/`）
 
 ## このテンプレートの導入手順
 
@@ -68,6 +69,10 @@ pnpm start          # node dist/main.js
 ## AI Agent Dev Container
 
 VS Code Dev Container を AI コーディングエージェント（Claude Code / Codex 等）の実行環境としても利用できます。同梱ツール・認証手順・ホスト設定の継承・サンドボックスのモード・PAT 運用などの詳細は [.devcontainer/README.md](.devcontainer/README.md) を参照してください。
+
+## AI Agent Sandbox（Docker Sandboxes）
+
+より強い隔離（microVM・deny-by-default ネットワーク・シークレット非搬入）でエージェントを無人実行するための [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit を `.sandbox/` に同梱しています。Dev Container と併存し、ホスト側で `sbx run claude --kit ./.sandbox/kit` のように使います。詳細は [.sandbox/README.md](.sandbox/README.md) を参照してください。
 
 ## リリースチェックリスト
 

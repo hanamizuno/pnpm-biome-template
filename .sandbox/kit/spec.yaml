@@ -1,0 +1,235 @@
+# Docker Sandboxes (sbx) 用の共有 mixin kit。
+# リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する:
+#   sbx run claude   --kit ./.sandbox/kit
+#   sbx run codex    --kit ./.sandbox/kit
+#   sbx run opencode --kit ./.sandbox/kit
+# エージェント別に kit を分けず、エージェント固有のセットアップ（Codex 設定 seed、
+# Claude Code への MCP 登録・Codex プラグイン登録）はガード付きで同居させる —
+# 対象外のエージェントの sandbox に入っても無害（設定は読まれず、登録はスキップされる）。
+# claude sandbox には委譲先の Codex / OpenCode CLI も入り、Claude Code を親にした
+# オーケストレーションができる（../README.md「オーケストレーション」参照）。
+#
+# スキーマ: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
+# 実機での検証手順と既知の未確認事項は ../README.md を参照。
+schemaVersion: "2"
+kind: mixin
+name: pnpm-biome-agent-env
+description: Node 24 + pnpm + headless Chromium + Chrome DevTools MCP のエージェント実行環境
+
+setup:
+  install:
+    # install コマンドはデフォルトで root（user "0"）実行。ユーザースコープの
+    # セットアップ（pnpm 設定、Claude MCP 登録）だけ user "1000"（agent）で行う。
+    # 各ステップは冪等 — sandbox 再作成（sbx rm → run）時にのみ再実行される。
+
+    - description: Node 24 の保証（テンプレート同梱の Node が 24 以上なら no-op）
+      command: |
+        set -eu
+        if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 24 ]; then
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs
+        fi
+
+    - description: corepack の有効化（pnpm の shim を配置）
+      command: |
+        set -eu
+        corepack enable
+
+    # storeDir を home 側に固定するのは、direct モードではワークスペースが
+    # ホストのチェックアウトそのものなので、未指定だと pnpm がチェックアウト
+    # 直下に .pnpm-store を作ってしまうため（devcontainer と同じ理由）。
+    - description: pnpm の準備と store の分離（agent ユーザー）
+      user: "1000"
+      command: |
+        set -eu
+        corepack prepare pnpm@11.9.0 --activate
+        mkdir -p "$HOME/.config/pnpm"
+        printf 'storeDir: %s\n' "$HOME/.pnpm-store" > "$HOME/.config/pnpm/config.yaml"
+
+    # VM 内でもカーネルサンドボックスが使えない前提で --no-sandbox ラッパーを
+    # 用意する。パスを devcontainer（Dockerfile devcontainer ステージ）と
+    # 同一にすることで、MCP 登録コマンドと Codex 設定を両環境で共通化している。
+    # Chromium 本体の導入元は 2 系統:
+    #   - Debian 系: apt の chromium（実体のあるパッケージ）
+    #   - Ubuntu 系（sbx テンプレートは Ubuntu / arm64）: apt の chromium は
+    #     snap 移行パッケージで snapd の無い VM では使えないため、
+    #     Playwright 配布の Chromium（linux-arm64 ビルドあり）を使う
+    # ラッパーは両系統を実行時に解決する。
+    - description: headless Chromium の準備（フォント・システム依存・ラッパー。root 分）
+      command: |
+        set -eu
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends fonts-noto-cjk fonts-liberation
+        CAND="$(apt-cache policy chromium 2>/dev/null | sed -n 's/^ *Candidate: *//p')"
+        if [ -n "$CAND" ] && [ "$CAND" != "(none)" ] && ! printf '%s' "$CAND" | grep -q snap; then
+          command -v chromium >/dev/null 2>&1 || apt-get install -y --no-install-recommends chromium
+        else
+          # Playwright の Chromium 用システム依存ライブラリのみ root で導入
+          # （本体は次ステップで agent ユーザーのキャッシュに入る）
+          npx -y playwright@latest install-deps chromium
+        fi
+        cat > /usr/local/bin/chromium-no-sandbox <<'EOF'
+        #!/bin/sh
+        BIN="$(command -v chromium 2>/dev/null || true)"
+        [ -n "$BIN" ] || BIN="$(ls -d /home/agent/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | sort -V | tail -n 1)"
+        [ -n "$BIN" ] || { echo "chromium not found: kit の Chromium ステップの結果を確認" >&2; exit 1; }
+        exec "$BIN" --no-sandbox --disable-dev-shm-usage "$@"
+        EOF
+        chmod +x /usr/local/bin/chromium-no-sandbox
+
+    # Playwright のバージョンは初回の実機検証で入ったものに合わせて固定すること
+    # （chrome-devtools-mcp と同じ再現性の方針）。
+    - description: Chromium 本体の取得と起動検証（agent ユーザー）
+      user: "1000"
+      command: |
+        set -eu
+        command -v chromium >/dev/null 2>&1 || npx -y playwright@latest install chromium
+        /usr/local/bin/chromium-no-sandbox --version
+
+    # バージョンは devcontainer 側で検証済みのものに固定（再現性と supply-chain
+    # 対策。更新時は devcontainer と揃えて上げる）。npx での都度取得にしないのは、
+    # ネットワークポリシーを絞った状態でも動かせるようにするため。
+    - description: Chrome DevTools MCP 本体
+      command: |
+        set -eu
+        command -v chrome-devtools-mcp >/dev/null 2>&1 || npm install -g chrome-devtools-mcp@1.7.0
+
+    - description: Claude Code への MCP 登録（claude が無いテンプレートではスキップ）
+      user: "1000"
+      command: |
+        set -eu
+        if command -v claude >/dev/null 2>&1 && ! claude mcp get chrome-devtools >/dev/null 2>&1; then
+          claude mcp add chrome-devtools -- chrome-devtools-mcp \
+            --headless --isolated --no-usage-statistics \
+            --executablePath /usr/local/bin/chromium-no-sandbox
+        fi
+
+    # --- オーケストレーション対応 ---------------------------------------------
+    # claude sandbox を親（オーケストレーター）として、委譲先の Codex / OpenCode
+    # CLI を同居させる（devcontainer の post-create.sh と同じ構成の移植）。
+    # 自テンプレートに同梱済みの sandbox（codex / opencode 単体実行用）では
+    # command -v ガードで no-op になるため、全 sandbox に適用しても無害。
+    - description: Codex CLI / OpenCode CLI（テンプレート同梱済みならスキップ）
+      command: |
+        set -eu
+        command -v codex >/dev/null 2>&1 || npm install -g @openai/codex
+        command -v opencode >/dev/null 2>&1 || npm install -g opencode-ai
+
+    # Codex を Claude Code のプラグインとして登録し、Claude Code から必要に応じて
+    # Codex に委譲できるようにする（codex-rescue サブエージェント + /codex スキル）。
+    # claude が無い sandbox ではスキップ。登録済みならスキップして冪等に保つ。
+    - description: Claude Code への Codex プラグイン登録（claude sandbox のみ）
+      user: "1000"
+      command: |
+        set -eu
+        command -v claude >/dev/null 2>&1 || exit 0
+        if ! claude plugin list 2>/dev/null | grep -q 'codex@openai-codex'; then
+          claude plugin marketplace add openai/codex-plugin-cc || true
+          claude plugin install codex@openai-codex
+        fi
+
+  files:
+    # Codex CLI の初期設定。codex テンプレートが既に config を seed している
+    # 場合は上書きしない。${WORKDIR} は sandbox のワークスペース絶対パス
+    # （direct モードではホストのチェックアウトパスがそのまま保存される）。
+    - path: /home/agent/.codex/config.toml
+      onlyIfMissing: true
+      content: |
+        #:schema https://developers.openai.com/codex/config-schema.json
+
+        # sandbox（microVM）自体が自律エージェント実行の隔離境界。
+        # 書き込みはワークスペースに限定しつつ、対話的な承認待ちは無効化する。
+        approval_policy = "never"
+        sandbox_mode = "workspace-write"
+        project_doc_max_bytes = 65536
+
+        [sandbox_workspace_write]
+        network_access = true
+
+        [projects."${WORKDIR}"]
+        trust_level = "trusted"
+
+        # VM 内の headless Chromium で画面の見た目をデバッグするための Chrome DevTools MCP。
+        # 本体と Chromium は kit（.sandbox/kit/spec.yaml）の install で導入される。
+        [mcp_servers.chrome-devtools]
+        command = "chrome-devtools-mcp"
+        args = ["--headless", "--isolated", "--no-usage-statistics", "--executablePath", "/usr/local/bin/chromium-no-sandbox"]
+
+permissions:
+  network:
+    # deny-by-default に対する追加許可（このリポジトリの作業に必要な分）。
+    # ここはデフォルトポリシーへの「追加」であり、デフォルト側の広い許可を
+    # 削るものではない — 実効ポリシーの確認と縮小はホスト側で行う
+    # （../README.md「ネットワークポリシーの監査」参照）。
+    allow:
+      # パッケージ取得
+      - registry.npmjs.org
+      - deb.debian.org
+      - security.debian.org
+      - archive.ubuntu.com
+      - security.ubuntu.com
+      - ports.ubuntu.com
+      - deb.nodesource.com
+      # Playwright 配布の Chromium（Ubuntu 系テンプレートで使用）
+      - cdn.playwright.dev
+      - playwright.download.prss.microsoft.com
+      # Claude Code
+      - api.anthropic.com
+      - statsig.anthropic.com
+      # Codex
+      - api.openai.com
+      - auth.openai.com
+      - chatgpt.com
+      # OpenCode（モデルカタログ）
+      - models.dev
+      # GitHub
+      - github.com
+      - api.github.com
+      - codeload.github.com
+      - objects.githubusercontent.com
+      - raw.githubusercontent.com
+
+credentials:
+  # ホスト側で `sbx secret set <sandbox名> github` した fine-grained PAT を、
+  # GitHub 宛のリクエストに限りプロキシがヘッダ注入する（service 名が
+  # `sbx secret set` の登録名に対応する。sandbox 名スコープで登録し、
+  # 他リポジトリの sandbox にも波及するグローバル登録 -g は使わない）。VM 内の GH_TOKEN には sentinel 値が入り、実値は
+  # プロキシが送信直前にヘッダを書き換える形でのみ使われる — 実値は VM に
+  # 入らない。PAT のスコープ方針は .devcontainer/README.md「GitHub 権限の
+  # 制限（PAT）」と同じ。
+  - service: github
+    apiKey:
+      name: GH_TOKEN
+      proxyManaged: true
+      inject:
+        - domain: api.github.com
+          header: Authorization
+          format: "token %s"
+        - domain: github.com
+          header: Authorization
+          format: "token %s"
+  # タスク用 API キーの雛形。使う場合はコメントを外し、ホストで
+  # `sbx secret set <sandbox名> example` してから sandbox を作り直す
+  # （この kit は setup.files を含むため `sbx kit add` では適用できない）。
+  # - service: example
+  #   apiKey:
+  #     name: EXAMPLE_API_KEY
+  #     proxyManaged: true
+  #     inject:
+  #       - domain: api.example.com
+  #         header: Authorization
+  #         format: "Bearer %s"
+
+agentInstructions:
+  content: |
+    - この環境は Docker Sandboxes の microVM 内。ワークスペースは direct モードで、
+      パスはホストの絶対パスのまま。編集は即ホストの作業ツリーに反映される。
+    - パッケージ管理は pnpm（corepack 管理）。初回は `pnpm install --frozen-lockfile`。
+    - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。
+    - GitHub 認証はホスト側プロキシが自動でヘッダ注入する。環境変数 GH_TOKEN の
+      中身は sentinel（実値ではない）で、トークンの実値はこの環境に存在しない。
+      値を読む・探す・表示する必要は一切ない。
+    - この環境に pass-cli / pass-relogin は無い（devcontainer 専用の仕組み）。
+    - 外向き通信は deny-by-default のドメイン許可リスト制。kit はこのリポジトリの
+      作業に必要な許可を追加しているだけで、実効ポリシー全体ではない。

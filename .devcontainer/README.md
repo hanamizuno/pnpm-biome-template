@@ -124,7 +124,7 @@ target を `/<dir>` にすると、コンテナ内の `/workspace` からホス�
 - 細粒度のネットワーク allow/deny リスト（あるのは上記の `--network=internal` による二値の隔離モードのみ）
 - エージェントセッション内から安全にコンテナをビルド・実行するためのネスト Docker デーモン（ホストの Docker ソケットは意図的にマウントしていません）
 
-これらが必要な場合は、[Docker Sandbox](https://docs.docker.com/ai/sandboxes/)（microVM のカーネル境界、allow/deny ネットワーク、サンドボックスごとの Docker デーモン）のような、より保証の強いサンドボックス内でエージェントを動かし、この devcontainer は内側のワークスペースとして扱ってください。
+これらが必要な場合は、[Docker Sandbox](https://docs.docker.com/ai/sandboxes/)（microVM のカーネル境界、allow/deny ネットワーク、サンドボックスごとの Docker デーモン）のような、より保証の強いサンドボックス内でエージェントを動かし、この devcontainer は内側のワークスペースとして扱ってください。本リポジトリには Docker Sandboxes（`sbx`）用の kit を `.sandbox/` に同梱しています — [.sandbox/README.md](../.sandbox/README.md) 参照。
 
 **ホストの loopback へのアクセスは意図的に開けていません。** `host.docker.internal` はデフォルトでは追加しません — 開けると `0.0.0.0` にバインドされたホストのサービス（ローカル LLM サーバー、開発用 DB、デバッグダッシュボード）がすべてエージェントから見えてしまいます。どうしても必要な場合（例: ローカルホストの OpenAI 互換エンドポイントをエージェントに使わせる）は、プロジェクトのデフォルトではなくローカルオーバーライドとして追加してください:
 
