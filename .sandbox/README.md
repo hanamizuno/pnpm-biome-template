@@ -128,7 +128,8 @@ sbx exec -it -w "$PWD" codex-approve-<ディレクトリ名> codex --approve-for
 注意点:
 
 - **`sbx run` で再接続すると既定の YOLO entrypoint が起動します。** 以後も常に `sbx exec` 側の手順で入ってください
-- **この組み合わせは公式ドキュメントに完成形の recipe として載っていません。** `sbx create` / `sbx exec` 自体は正式なコマンドですが、「組み込み sandbox を作って同じ agent binary を別フラグで exec し、OAuth も使う」構成は本テンプレートでの推論です。標準手順に採用する前に、Claude Max / ChatGPT サブスクリプションの双方で実機確認してください（未確認事項 4）
+- **`--name` を省くと sandbox 名は `claude-<ディレクトリ名>`**（`claude-auto-` の前置きは付きません）。本節のコマンド例は `--name` を明示した前提なので、省いた場合は `sbx secret set --sandbox` / `git fetch sandbox-...` に渡す名前を実名（`sbx ls`、または VM 内の `$SANDBOX_NAME`）へ読み替えてください
+- **この組み合わせは公式ドキュメントに完成形の recipe として載っていません。** `sbx create` / `sbx exec` 自体は正式なコマンドですが、「組み込み sandbox を作って同じ agent binary を別フラグで exec し、OAuth も使う」構成は本テンプレートでの推論です。**claude テンプレート + Claude Max サブスクリプションでは実機検証済み**（「既知の未確認事項」参照）。codex テンプレート + ChatGPT サブスクリプションは未確認です
 
 ### 方式 B: fork kit（API キー課金にできる場合）
 
@@ -189,6 +190,40 @@ clone モードではワークスペースが **VM 内の独立した git クロ
 
 - **`sbx rm` は push していないコミットを消します。** 長時間の無人実行ではこまめに push させてください（kit の `agentInstructions` にも明記しています）
 
+## ホストの別フォルダを参照させる
+
+devcontainer で bind mount（`compose.yaml` の `volumes`）や `initialize.sh` のステージングでやっていたことに相当します。sbx では **`sbx create` / `sbx run` の位置引数にパスを追加**します — 最初のパスが primary workspace で、2 つ目以降が追加マウントです:
+
+```bash
+sbx create --name claude-auto-<ディレクトリ名> --clone --kit ./.sandbox/kit \
+  claude . ~/develop/other-repo:ro ~/docs/design-notes:ro
+```
+
+- 追加ワークスペースは **`--clone` の対象外で、常に direct mount** されます（clone されるのは最初のパスだけ）
+- VM 内では**ホストの絶対パスのまま**見えます（`~/develop/other-repo` → `/Users/<user>/develop/other-repo`）
+- `:ro` を付けると読み取り専用。`sbx run` でも同じ書き方ができます
+- **ワークスペースの追加は作成時のみです。** あとから足すには `sbx rm` → 作り直し（kit の更新と同じ）
+
+> **参照目的なら必ず `:ro` を付けてください。** 追加分は direct mount なので、「clone モードで運用する」に挙げた direct モードの問題がそのまま当てはまります — `:ro` 無しだとエージェントの書き込みがホストへ即反映されて隔離がそこだけ穴になり、virtiofs の symlink `st_size` = 0 問題があるため git リポジトリを rw で渡すとリンクを壊したコミットが生まれ得ます。`node_modules` を含むフォルダは macOS / Linux バイナリの混在を招くので渡さないこと。
+
+用途別の使い分け:
+
+| やりたいこと | 手段 |
+|---|---|
+| ホストの別フォルダを参照させる | 追加ワークスペース `<path>:ro` |
+| 単発のファイルを渡す / 取り出す | `sbx cp ./config.json <sandbox名>:/home/agent/`（逆方向も可。片側は `SANDBOX:PATH` 形式） |
+| ホストの**このリポジトリ**の最新コミット | `/run/sandbox/source`（read-only bind mount。「運用上の違い」参照） |
+| VM 内の作業領域が欲しいだけ | kit の `volumes:`（**ホストの bind mount ではない** — VM 内の block / tmpfs ボリューム） |
+
+### sbx が自動で継承するもの
+
+devcontainer の `initialize.sh` に相当する処理の一部は sbx 側が組み込みで行っています。claude テンプレートの VM 内で実測した内容:
+
+- **git identity** — `user.name` / `user.email` はホストの値が入っている（ステージング不要）
+- **グローバル gitignore** — `core.excludesFile` = `/home/agent/.gitignore_global` として配置済み
+- **`~/.claude/skills`** — ホストから **rw の virtiofs bind mount**（`mount | grep virtiofs` で確認できる）。つまりホストのスキル群が共有され、**エージェントが書き換えるとホスト側にも反映される**
+- 一方、ホストの `~/.claude/settings.json` は継承されません（VM 内には sbx 用の別内容が置かれる）。statusline のようなホスト固有設定が要る場合は kit の `setup.files` で書くか `sbx cp` で運ぶ
+
 ## ネットワークポリシーの監査
 
 外向き通信は deny-by-default ですが、**デフォルトの許可リストには広い wildcard が含まれます**。初回に必ず確認してください:
@@ -206,6 +241,8 @@ curl -s https://example.com/ | head -1
 # Blocked by network policy: domain example.com:443
 #   detail: no matching allow rule — blocked by default deny policy
 ```
+
+**HTTP ステータスだけで判断しないでください。** 許可されているドメインでも 4xx は普通に返ります（例: `claude.ai` は許可済みでも Cloudflare のボットチャレンジで 403、`api.anthropic.com` は GET `/` に 404）。拒否かどうかは**本文が `Blocked by network policy` で始まるか**で判別します。
 
 実機検証で判明した点として、**デフォルトポリシーは `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していません**。前者はエージェントの対話ログイン（OAuth）、後者は OpenCode の認証・更新で必要になり得るため、kit の allow に追加しています。テレメトリ系（`sentry.io` 等）は拒否のままが望ましい状態です。
 
@@ -258,13 +295,13 @@ sandbox はテンプレートイメージ単位（= 親エージェント単位�
 
 ## ホスト試用チェックリスト
 
-併存期間の評価に使う確認項目です。上から順に（**4・6〜12 は clone モードの claude sandbox で実施済み** — 詳細は「既知の未確認事項」参照。残るホスト側項目は 1〜3・5・13・14）:
+併存期間の評価に使う確認項目です。上から順に（**4 の方式 A・6〜12 は clone モードの claude sandbox で実施済み** — 詳細は「既知の未確認事項」参照。残るのはホスト側項目 1〜3・5・13・14 と、4 の方式 B）:
 
 1. `sbx version` — インストール確認
 2. `sbx login` — Docker アカウントへのサインイン（ブラウザのデバイスコードフロー）
 3. `sbx kit validate ./.sandbox/kit` / `sbx kit validate ./.sandbox/claude-auto` / `sbx kit validate ./.sandbox/codex-approve` — kit スキーマの検証（fork kit 2 つは未検証。`extends:` の解決も含めてここで確認する）
 4. 起動モードの上書きを確認（どちらの方式を採るかで分岐。両方試して比較するのが望ましい）:
-   - **方式 A**: `sbx create --name claude-auto-<ディレクトリ名> --clone --kit ./.sandbox/kit claude .` → `sbx exec -it -w "$PWD" claude-auto-<ディレクトリ名> claude --permission-mode auto`。**サブスクリプション認証のまま起動できること**（再ログインを求められないこと）が最重要の確認点
+   - **方式 A（claude テンプレートでは検証済み）**: `sbx create --name claude-auto-<ディレクトリ名> --clone --kit ./.sandbox/kit claude .` → `sbx exec -it -w "$PWD" claude-auto-<ディレクトリ名> claude --permission-mode auto`。**サブスクリプション認証のまま起動できること**（再ログインを求められないこと）が最重要の確認点
    - **方式 B**: `sbx run claude-auto --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto`。認証が API キー登録（`sbx secret set anthropic`）を要求するはずなので、その挙動も確認する
    - いずれも VM 内で `git remote -v` / `ls /run/sandbox/source` が clone モードであること、`ps -eo args | grep claude` が `claude --permission-mode auto` を示すこと（**`--dangerously-skip-permissions` が残っていないこと**）を確認
 5. `sbx secret set github --sandbox claude-auto-<ディレクトリ名>` → `sbx secret ls` でスコープが sandbox 単位（グローバルでない）ことを確認
@@ -333,15 +370,24 @@ spec.yaml は [kit spec reference](https://docs.docker.com/ai/sandboxes/customiz
 - **組み込み claude テンプレートの既定起動コマンドが `claude --dangerously-skip-permissions` であることを VM 内の `ps` で実測**。共有 mixin（= `sandbox:` ブロックを持てない）だけでは上書きできない（「YOLO 既定の上書き」参照）
 - **組み込みエージェントの認証はプロキシ管理であることを確認** — `~/.claude/.credentials.json` の `claudeAiOauth.accessToken` / `refreshToken` はいずれも 26 文字で、`GH_TOKEN`（13 文字、`prox…` で始まる）と同種の sentinel。実 OAuth トークンは VM に入っていない
 
+**方式 A（`sbx create` + `sbx exec`）での検証で判明済み**（`sbx create --clone --kit ./.sandbox/kit claude .` → `sbx exec -it -w "$PWD" <sandbox名> claude --permission-mode auto`、claude テンプレート + Claude Max）:
+
+- `sbx create` はエージェントを起動せずに kit の install を完走し、`sbx exec` で立ち上げたプロセスは `ps` 上 **`claude --permission-mode auto`**（`--dangerously-skip-permissions` は残らない）。既定の YOLO entrypoint を踏まずに済む
+- **サブスクリプション認証はそのまま維持され、再ログインを求められない。** `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` / `CLAUDE_CODE_OAUTH_TOKEN` はいずれも未設定で、`~/.claude/.credentials.json` の token 類は 26 文字の sentinel のまま（＝実値は VM に無い）
+- 権限判断が実際に効いていることも確認 — `~/.claude/.credentials.json` の値を表示しようとしたコマンドが auto モードの classifier に拒否された
+- チェックリスト 6〜12 を再走して全項目パス（Node v24.20.0 / pnpm 11.9.0 / storeDir `/home/agent/.pnpm-store` / Chromium 151.0.7922.34 / `chrome-devtools` MCP 接続 OK / `codex@openai-codex` 1.0.6 / `gh api user`・`git ls-remote`・`git push --dry-run` 成功 / `CI=true pnpm install --frozen-lockfile` → `pnpm release-check` 通過）
+- **`claude.ai` は 403 を返すが、本文は Cloudflare のボットチャレンジページでポリシーとしては通過している。** ポリシー拒否かどうかは本文が `Blocked by network policy` かで判別すること（`example.com` / `sentry.io` は拒否のまま）
+- `claude mcp list` に kit 由来でない **`mcp-gateway`**（`http://mcp-gateway.docker.internal/mcp`）が登録・接続されている。sbx 側が用意しているものと思われる
+- `claude mcp list` 冒頭に「claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set」という警告が出るが、API キーは未設定であり、プロキシ管理の credential が "another auth source" と判定されているため。無効になるのは claude.ai 側の organization connectors だけで、Claude Code 自体の動作には影響しない
+
 残る未確認事項。判明したら spec.yaml とこの節を更新してください:
 
 1. **codex / opencode テンプレートでの同挙動** — 上記の確認は claude テンプレートのみ。特に codex テンプレートが `~/.codex/config.toml` を seed している場合、`onlyIfMissing` により kit 側の設定は入らない
 2. **`sbx rm` を跨いだ secret の永続性** — sandbox 名スコープで登録した secret が sandbox 再作成後も残るかは未確認。作り直したら `gh api user` で再確認すること
 3. **ホスト側でしか確認できない項目**（VM 内に `sbx` は無いため未実施）— チェックリスト 5（`sbx secret ls` のスコープ）・13（再接続で install が走らない / `sbx rm` 後は走る）・14 後半（`git fetch sandbox-claude-auto-<ディレクトリ名>`）
-4. **YOLO 既定の上書きは方式 A・B とも未検証** — 現在の sandbox は共有 mixin のみ・既定の YOLO 起動で作られています。次に作り直すときに次を確認してください:
-   - **方式 A（`sbx create` + `sbx exec`）** — `sbx create` がエージェントを起動せずに kit の install を完走すること、`sbx exec -it -w "$PWD"` で目的のフラグの process が立ち上がること、そして**サブスクリプション認証が維持されること**（Claude Max / ChatGPT の双方）。コマンド自体は公式のものですが、この組み合わせは公式ドキュメントの recipe ではありません
-   - **方式 B（fork kit）** — `sbx kit validate` が通ること、mixin と fork kit の `--kit` 二重指定が両方適用されること、`ps` の起動引数から `--dangerously-skip-permissions` が消えていること、OAuth 非対応の制約が実際にどこで顕在化するか
-   - 両方式に共通で、`entrypoint` と `command` の継承がどう解決されるか（親の bypass フラグがどちらに入っているか）は公開されていないため、**`ps` での実測を必ず行ってください**
+4. **YOLO 既定の上書きは方式 B が未検証**（方式 A は claude テンプレートで検証済み — 上記参照）:
+   - **方式 B（fork kit）** — `sbx kit validate` が通ること、mixin と fork kit の `--kit` 二重指定が両方適用されること、`ps` の起動引数から `--dangerously-skip-permissions` が消えていること、OAuth 非対応の制約が実際にどこで顕在化するか。`entrypoint` と `command` の継承がどう解決されるか（親の bypass フラグがどちらに入っているか）は公開されていないため、**`ps` での実測を必ず行ってください**
+   - **方式 A の codex 側** — codex テンプレート + ChatGPT サブスクリプションで同じ手順が通るか（`sbx exec -it -w "$PWD" <sandbox名> codex --approve-for-me`、チェックリスト 11）
 
 ## 将来フェーズ: devcontainer からのエージェント除去の判断基準
 
