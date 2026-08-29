@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Node.js + pnpm + Biomeベースのテンプレートプロジェクトです。TypeScriptを使用し、Biomeによるフォーマット・リント、vitestによるテストを標準構成としています。
 
-コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container は Docker Compose ベース（`.devcontainer/compose.yaml` + `devcontainer.json`。gitignore 済み `compose.local.yaml` で個人環境向けオーバーライド可）で、AI エージェント CLI（Claude Code / Codex / OpenCode / Pi / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます（post-create 管理分は `post-create.sh` 冒頭の `AGENTS` 配列でコメントアウトにより取捨選択可）。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore、git identity（user.name / user.email）、Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。
+コンテナ構成: `Dockerfile`（マルチステージ: `dev` / `prod` / `devcontainer`）、`compose.dev.yml`（開発）、`compose.yml`（本番）。Dev Container は Docker Compose ベース（`.devcontainer/compose.yaml` + `devcontainer.json`。gitignore 済み `compose.local.yaml` で個人環境向けオーバーライド可）で、AI エージェント CLI（Claude Code / Codex / OpenCode / Pi / GitHub CLI）を Dev Container Features と post-create フック経由で重ねて注入する実行環境も兼ねます（post-create 管理分は `post-create.sh` 冒頭の `AGENTS` 配列でコメントアウトにより取捨選択可）。見た目のデバッグ用に headless Chromium + Chrome DevTools MCP（`chrome-devtools-mcp`）も同梱しており、エージェントが開発サーバーの画面をスクリーンショット等で確認できます。さらにホスト設定 — グローバル gitignore、git identity（user.name / user.email）、Claude Code の settings / statusline — も継承します（`.devcontainer/initialize.sh` がステージングし、`.devcontainer/post-start.sh` がコンテナ内へ反映）。より強い隔離（microVM・deny-by-default ネットワーク）でエージェントを実行するための Docker Sandboxes（`sbx`）用 kit も `.sandbox/` に同梱しています（ホスト側で実行。詳細は `.sandbox/README.md`）。
 
 ## 開発コマンド
 
@@ -109,6 +109,8 @@ pnpm update
 ├── compose.yml              # 本番用 Docker Compose
 ├── compose.dev.yml          # 開発用 Docker Compose
 ├── .vscode/                 # VS Code 設定（biome を既定フォーマッタに、保存時に fixAll）
+├── .claude/
+│   └── settings.json        # Claude Code のプロジェクト設定（既定の権限モードを auto に）
 ├── .devcontainer/
 │   ├── devcontainer.json    # Dev Container 設定（compose.yaml を参照。AI エージェントツールは Features で注入）
 │   ├── compose.yaml         # devcontainer 用 compose 定義（固定名 volume で認証永続化・node_modules 分離。compose.local.yaml でローカルオーバーライド）
@@ -116,6 +118,14 @@ pnpm update
 │   ├── post-create.sh       # post-create フック（pnpm install + AGENTS 配列で選択したエージェント CLI（Codex / OpenCode / Pi）+ Chrome DevTools MCP のセットアップ）
 │   ├── post-start.sh        # post-start フック（ステージングされたホスト設定をコンテナ内へ反映）
 │   └── codex-config.toml    # Codex CLI 初期設定（永続化される ~/.codex ボリュームへコピー、MCP 登録含む）
+├── .sandbox/
+│   ├── README.md            # Docker Sandboxes（sbx）運用ドキュメント（devcontainer と併存、ホストで実行）
+│   ├── kit/
+│   │   └── spec.yaml        # sbx 用共有 mixin kit（Node + pnpm + Chromium + MCP + ネットワーク/credential ルール）
+│   ├── claude-auto/
+│   │   └── spec.yaml        # claude の fork kit（既定の YOLO 起動を --permission-mode auto に差し替え）
+│   └── codex-approve/
+│       └── spec.yaml        # codex の fork kit（既定の YOLO 起動を --approve-for-me に差し替え）
 └── .github/
     ├── dependabot.yml       # GitHub Actions / Docker / Dev Container の自動更新（7 日 cooldown）
     ├── labeler.yml          # PR 自動ラベリングのパス定義（label_pr.yml が使用）
@@ -224,3 +234,4 @@ TypeScript設定：
 - シークレットをコミットしないこと。タスク用シークレット（API キー、トークン）は ambient な環境変数ではなく Proton Pass（`pass-cli`）から取得する。必要なコマンドは `PROTON_PASS_AGENT_REASON="<取得理由>" pass-cli run --env-file .env -- <cmd>` で実行する（`.env` には `pass://` 参照だけを書く。`example.env` からコピー）。
 - `pass-cli` が認証エラーを返したとき、またはセッションが無いとき（`pass-cli info` が失敗するとき）は `.devcontainer/pass-relogin` を実行してからリトライする。コンテナ内に配備済みのトークンからセッションを復元し、`gh` 認証が無ければ seed もする。
 - `~/.local/state/proton-pass-agent/pat` を読む・表示する・コピーすることは禁止 — トークンの値を扱う必要は一切なく、`pass-relogin` がすべて処理する。
+- Docker Sandboxes（sbx）環境には pass-cli は存在しない（devcontainer 専用の仕組み）。GitHub 認証等はサンドボックスのホスト側プロキシが自動でヘッダ注入するため、トークン値の取得を試みないこと。判別方法: `pass-cli` コマンドが無ければ sbx 環境（`.sandbox/README.md` 参照）。

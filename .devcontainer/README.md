@@ -27,7 +27,7 @@ post-create 管理のエージェント（Codex / OpenCode / Pi）は `post-crea
 2. **認証**（初回のみ。ホストから bind mount せず、固定名の compose named volume に永続化されるため、リビルド後も再ログイン不要）:
    - **Claude Code**: そのままエージェントを起動すれば、初回はインラインでログインフローが表示されます。`/login` を CLI 引数で渡さないこと — それはアクティブセッション用のスラッシュコマンドで、ホストシェルから使うとフローが二重に起動します。
      ```bash
-     devcontainer exec --workspace-folder . claude --dangerously-skip-permissions
+     devcontainer exec --workspace-folder . claude --permission-mode auto
      ```
    - **Codex CLI**: エージェントを起動して ChatGPT でサインインします。API キー課金を使う場合は、ホストシェルへの export や `remoteEnv` パススルーではなく、`.env` の `pass://` 参照 + `pass-cli run --env-file .env -- codex` で渡してください（下記「タスク用シークレット（Proton Pass / pass-cli）」参照）。初回のコンテナ作成時に `codex-config.toml` が永続化される `~/.codex/config.toml` ボリュームにコピーされます。同じ post-create ステップで Claude Code の `~/.claude` ボリュームに `codex@openai-codex` プラグインもインストールされるため、Claude Code がセッションごとの再インストールなしに Codex を呼び出せます（`codex-rescue` サブエージェント + `/codex` スキル）。
      ```bash
@@ -100,7 +100,7 @@ target を `/<dir>` にすると、コンテナ内の `/workspace` からホス�
 
 ## 動作モード
 
-- **デフォルト（egress 開放）** — 送信トラフィックは制限しません。ホストの認証情報は bind mount せず（Claude / Codex / `gh` の認証はコンテナスコープのボリュームに格納）、ホストの Docker ソケットも露出しません。`--dangerously-skip-permissions` に対する防御面は「非 root の `vscode` ユーザー」「ワークスペース限定マウント」「コンテナスコープの認証ボリューム」の 3 点です。Codex はコンテナスコープの設定に `approval_policy = "never"` と `sandbox_mode = "workspace-write"` が seed されるため、書き込みをワークスペースに限定しつつ承認待ちなしで動作します。エージェントがネットワークアクセス付きで無人実行されるからこそ、タスク用シークレット（API キーやトークン）は ambient なコンテナ環境変数ではなく `pass-cli run` によるコマンド単位の注入で渡します — 下記「タスク用シークレット（Proton Pass / pass-cli）」参照。
+- **デフォルト（egress 開放）** — 送信トラフィックは制限しません。ホストの認証情報は bind mount せず（Claude / Codex / `gh` の認証はコンテナスコープのボリュームに格納）、ホストの Docker ソケットも露出しません。自律実行に対する防御面は「非 root の `vscode` ユーザー」「ワークスペース限定マウント」「コンテナスコープの認証ボリューム」の 3 点です。エージェントの既定モードは、権限チェックを全面的に飛ばすのではなく**自動判断させつつ逸脱には歯止めを掛ける**設定にしています — Claude Code は `permissions.defaultMode: "auto"`（`.claude/settings.json`）、Codex はコンテナスコープの設定に `approval_policy = "on-request"` / `approvals_reviewer = "auto_review"` / `sandbox_mode = "workspace-write"` が seed され、書き込みをワークスペースに限定しつつ、エスカレーションされた承認要求を人間ではなく自動レビューへ回すため無人でも止まりません。エージェントがネットワークアクセス付きで無人実行されるからこそ、タスク用シークレット（API キーやトークン）は ambient なコンテナ環境変数ではなく `pass-cli run` によるコマンド単位の注入で渡します — 下記「タスク用シークレット（Proton Pass / pass-cli）」参照。
 - **隔離モード（任意）** — より厳格なサンドボックスにしたい場合は、egress 不可の Docker ネットワークを作成しコンテナをそこに接続します:
   ```bash
   docker network create --internal agent-internal
@@ -124,7 +124,7 @@ target を `/<dir>` にすると、コンテナ内の `/workspace` からホス�
 - 細粒度のネットワーク allow/deny リスト（あるのは上記の `--network=internal` による二値の隔離モードのみ）
 - エージェントセッション内から安全にコンテナをビルド・実行するためのネスト Docker デーモン（ホストの Docker ソケットは意図的にマウントしていません）
 
-これらが必要な場合は、[Docker Sandbox](https://docs.docker.com/ai/sandboxes/)（microVM のカーネル境界、allow/deny ネットワーク、サンドボックスごとの Docker デーモン）のような、より保証の強いサンドボックス内でエージェントを動かし、この devcontainer は内側のワークスペースとして扱ってください。
+これらが必要な場合は、[Docker Sandbox](https://docs.docker.com/ai/sandboxes/)（microVM のカーネル境界、allow/deny ネットワーク、サンドボックスごとの Docker デーモン）のような、より保証の強いサンドボックス内でエージェントを動かし、この devcontainer は内側のワークスペースとして扱ってください。本リポジトリには Docker Sandboxes（`sbx`）用の kit を `.sandbox/` に同梱しています — [.sandbox/README.md](../.sandbox/README.md) 参照。
 
 **ホストの loopback へのアクセスは意図的に開けていません。** `host.docker.internal` はデフォルトでは追加しません — 開けると `0.0.0.0` にバインドされたホストのサービス（ローカル LLM サーバー、開発用 DB、デバッグダッシュボード）がすべてエージェントから見えてしまいます。どうしても必要な場合（例: ローカルホストの OpenAI 互換エンドポイントをエージェントに使わせる）は、プロジェクトのデフォルトではなくローカルオーバーライドとして追加してください:
 
@@ -140,7 +140,7 @@ services:
 
 ## GitHub 権限の制限（PAT）
 
-Claude Code を `--dangerously-skip-permissions` で動かすと、保存された `gh` トークンのスコープをそのまま引き継ぎます。爆発半径を絞るため、普段使いの `$GH_TOKEN` ではなく専用 PAT をボリュームに seed することを推奨します。
+エージェントが `gh` を実行すると、保存された `gh` トークンのスコープをそのまま引き継ぎます（auto モードでも同じで、権限の広さはトークン側でしか絞れません）。爆発半径を絞るため、普段使いの `$GH_TOKEN` ではなく専用 PAT をボリュームに seed することを推奨します。
 
 **手順:**
 
@@ -193,7 +193,7 @@ Claude Code を `--dangerously-skip-permissions` で動かすと、保存され�
 
 ## タスク用シークレット（Proton Pass / pass-cli）
 
-このコンテナのエージェントは無人（`approval_policy = "never"`、`--dangerously-skip-permissions`）で動き、自分の環境変数はすべて読めます。そのためタスク用シークレットを ambient なコンテナ環境変数に置いてはいけません — `remoteEnv` / `containerEnv` によるパススルーがまさにそれに当たります（以前の `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` パススルーはこの理由で廃止）。代わりに [Proton Pass CLI](https://protonpass.github.io/pass-cli/) を devcontainer ステージに焼き込み、コマンド単位で注入します:
+このコンテナのエージェントは無人（Claude Code は auto モード、Codex は `approvals_reviewer = "auto_review"`）で動き、自分の環境変数はすべて読めます。承認要求が自動レビューを経由するようになっても、**環境変数の読み取りはコマンド実行を伴わないため歯止めになりません**。そのためタスク用シークレットを ambient なコンテナ環境変数に置いてはいけません — `remoteEnv` / `containerEnv` によるパススルーがまさにそれに当たります（以前の `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` パススルーはこの理由で廃止）。代わりに [Proton Pass CLI](https://protonpass.github.io/pass-cli/) を devcontainer ステージに焼き込み、コマンド単位で注入します:
 
 1. `.env`（git-ignore 済み）には `pass://SHARE_ID/ITEM_ID/FIELD` の**参照だけ**を書きます — `example.env` を `.env` にコピーして始めてください。参照は ID ベースです: URI に vault 名やアイテム名を書いても解決されません（pass-cli はそのまま素通しします）。ID は `pass-cli item list --vault-name <vault> --output json`（`share_id` / `id` フィールド）で調べられます。参照は識別子であって値ではないので `example.env` はコミット可能です。実体の `.env` は「本物のトークンをうっかり書いた」事故への保険として ignore のままにします。
 2. シークレットが必要なコマンドは `pass-cli run` 経由で実行します:

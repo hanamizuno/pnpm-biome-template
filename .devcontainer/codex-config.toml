@@ -1,8 +1,12 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
 # devcontainer 自体が自律エージェント実行の隔離境界。
-# 書き込みはチェックアウト済みワークスペースに限定しつつ、対話的な承認待ちは無効化する。
-approval_policy = "never"
+# 書き込みはチェックアウト済みワークスペースに限定しつつ、エスカレーションされた
+# 承認要求は人間ではなく自動レビューへ回す（CLI の `--approve-for-me` 相当）。
+# 承認を一切求めない `approval_policy = "never"` と違い、サンドボックス外への
+# 書き込みやネットワーク遮断などの逸脱はリスク評価を経てから許可/拒否される。
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
 sandbox_mode = "workspace-write"
 project_doc_max_bytes = 65536
 
