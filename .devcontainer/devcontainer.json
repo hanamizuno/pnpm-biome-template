@@ -32,7 +32,7 @@
     // proton-pass volume 内)。
     // API キーの ${localEnv:...} パススルーは廃止 — ホスト shell への平文 export が
     // 前提になり、コンテナ内でも ambient に見えてしまう。API キーは .env の pass://
-    // 参照 + `pass-cli run` で渡す (README「タスク用シークレット」参照)
+    // 参照 + `pass-cli run` で渡す (docs/knowledge/runbooks/devcontainer.md「タスク用シークレット」参照)
     "PROTON_PASS_KEY_PROVIDER": "fs",
     "PROTON_PASS_SESSION_DIR": "/home/vscode/.local/state/proton-pass"
   },

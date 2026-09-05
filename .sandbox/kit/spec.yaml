@@ -1,6 +1,6 @@
 # Docker Sandboxes (sbx) 用の共有 mixin kit。
 # リポジトリの checkout ディレクトリ（ホスト側）から次のように適用する
-# （--clone は必須。理由は ../README.md「clone モードで運用する」参照）:
+# （--clone は必須。理由は /docs/knowledge/runbooks/agent-sandbox-sbx.md「clone モードで運用する」参照）:
 #   sbx run opencode --clone --kit ./.sandbox/kit
 #
 # claude / codex は組み込みエージェントの既定起動コマンドが YOLO のため、
@@ -12,16 +12,16 @@
 #   B) 起動コマンドを差し替える fork kit を重ねる（OAuth 不可 / API キーが必要）
 #        sbx run claude-auto   --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
 #        sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
-# 詳細は ../README.md「YOLO 既定の上書き」。opencode は既定で暗黙のフラグが
+# 詳細は /docs/knowledge/runbooks/agent-sandbox-sbx.md「YOLO 既定の上書き」。opencode は既定で暗黙のフラグが
 # 無いため、どちらの方式も不要。
 # エージェント別に kit を分けず、エージェント固有のセットアップ（Codex 設定 seed、
 # Claude Code への MCP 登録・Codex プラグイン登録）はガード付きで同居させる —
 # 対象外のエージェントの sandbox に入っても無害（設定は読まれず、登録はスキップされる）。
 # claude sandbox には委譲先の Codex / OpenCode CLI も入り、Claude Code を親にした
-# オーケストレーションができる（../README.md「オーケストレーション」参照）。
+# オーケストレーションができる（/docs/knowledge/runbooks/agent-sandbox-sbx.md「オーケストレーション」参照）。
 #
 # スキーマ: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
-# 実機での検証手順と既知の未確認事項は ../README.md を参照。
+# 実機での検証手順と既知の未確認事項は /docs/knowledge/research/sbx-verification.md を参照。
 schemaVersion: "2"
 kind: mixin
 name: pnpm-biome-agent-env
@@ -187,7 +187,7 @@ permissions:
     # deny-by-default に対する追加許可（このリポジトリの作業に必要な分）。
     # ここはデフォルトポリシーへの「追加」であり、デフォルト側の広い許可を
     # 削るものではない — 実効ポリシーの確認と縮小はホスト側で行う
-    # （../README.md「ネットワークポリシーの監査」参照）。
+    # （/docs/knowledge/runbooks/agent-sandbox-sbx.md「ネットワークポリシーの監査」参照）。
     allow:
       # パッケージ取得
       - registry.npmjs.org
@@ -229,10 +229,10 @@ credentials:
   # `sbx secret set` の登録名に対応する。sandbox 名スコープで登録し、
   # 他リポジトリの sandbox にも波及するグローバル登録 -g は使わない。値は
   # -t で渡さず対話プロンプト（または --ref / --command）で入れる —
-  # ../README.md「トークンを画面・履歴に残さず登録する」参照）。
+  # /docs/knowledge/runbooks/agent-sandbox-sbx.md「トークンを画面・履歴に残さず登録する」参照）。
   # VM 内の GH_TOKEN には sentinel 値が入り、実値は
   # プロキシが送信直前にヘッダを書き換える形でのみ使われる — 実値は VM に
-  # 入らない。PAT のスコープ方針は .devcontainer/README.md「GitHub 権限の
+  # 入らない。PAT のスコープ方針は /docs/knowledge/runbooks/devcontainer.md「GitHub 権限の
   # 制限（PAT）」と同じ。
   - service: github
     apiKey:

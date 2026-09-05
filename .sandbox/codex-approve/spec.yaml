@@ -16,7 +16,7 @@
 # `sbx secret set openai` でホストに登録してから起動することになる。
 # サブスクリプション認証のまま使いたい場合は、この kit ではなく
 # 「sandbox だけ作って sbx exec で起動する」方式を採る
-# （../README.md「YOLO 既定の上書き」の方式 A）。
+# （/docs/knowledge/runbooks/agent-sandbox-sbx.md「YOLO 既定の上書き」の方式 A）。
 #
 # スキーマ: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
 schemaVersion: "2"
