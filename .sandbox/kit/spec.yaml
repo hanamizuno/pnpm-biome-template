@@ -224,10 +224,13 @@ permissions:
       - raw.githubusercontent.com
 
 credentials:
-  # ホスト側で `sbx secret set <sandbox名> github` した fine-grained PAT を、
-  # GitHub 宛のリクエストに限りプロキシがヘッダ注入する（service 名が
+  # ホスト側で `sbx secret set github --sandbox <sandbox名>` した fine-grained
+  # PAT を、GitHub 宛のリクエストに限りプロキシがヘッダ注入する（service 名が
   # `sbx secret set` の登録名に対応する。sandbox 名スコープで登録し、
-  # 他リポジトリの sandbox にも波及するグローバル登録 -g は使わない）。VM 内の GH_TOKEN には sentinel 値が入り、実値は
+  # 他リポジトリの sandbox にも波及するグローバル登録 -g は使わない。値は
+  # -t で渡さず対話プロンプト（または --ref / --command）で入れる —
+  # ../README.md「トークンを画面・履歴に残さず登録する」参照）。
+  # VM 内の GH_TOKEN には sentinel 値が入り、実値は
   # プロキシが送信直前にヘッダを書き換える形でのみ使われる — 実値は VM に
   # 入らない。PAT のスコープ方針は .devcontainer/README.md「GitHub 権限の
   # 制限（PAT）」と同じ。
@@ -243,7 +246,7 @@ credentials:
           header: Authorization
           format: "token %s"
   # タスク用 API キーの雛形。使う場合はコメントを外し、ホストで
-  # `sbx secret set <sandbox名> example` してから sandbox を作り直す
+  # `sbx secret set example --sandbox <sandbox名>` してから sandbox を作り直す
   # （この kit は setup.files を含むため `sbx kit add` では適用できない）。
   # - service: example
   #   apiKey:

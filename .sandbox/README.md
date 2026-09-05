@@ -56,14 +56,19 @@ sbx create --name claude-auto-<ディレクトリ名> --clone --kit ./.sandbox/k
 #    YOLO entrypoint が起動してしまう点に注意）
 sbx exec -it -w "$PWD" claude-auto-<ディレクトリ名> claude --permission-mode auto
 
-# 3) GitHub の fine-grained PAT を、その sandbox だけにスコープして登録
+# 3) GitHub の fine-grained PAT を、その sandbox だけにスコープして登録。
+#    -t は付けない — 値は対話プロンプトで入力する（コマンドラインにも
+#    シェル履歴にも残さないため。CLI リファレンス自身が -t を
+#    "less secure: visible in shell history" と注記している）。
+#    パスワードマネージャから引く方法は「タスク用シークレット」の
+#    「トークンを画面・履歴に残さず登録する」を参照。
 #    （`github` は kit の credentials の service 名と対応する。`--sandbox` には
 #      sandbox 名を渡す（`sbx ls` で確認できる）。
 #      sandbox-scoped の secret は実行中の sandbox にも即時反映される。
 #      スコープ方針は .devcontainer/README.md「GitHub 権限の制限（PAT）」と同じ —
 #      リポジトリ単位のスコープ限定 PAT を、そのリポジトリの sandbox にだけ渡す。
 #      値は VM に入らず、プロキシが GitHub 宛リクエストのヘッダにのみ注入する）
-sbx secret set github --sandbox claude-auto-<ディレクトリ名> -t "<fine-grained PAT>"
+sbx secret set github --sandbox claude-auto-<ディレクトリ名>
 
 # Codex も同様。OpenCode は既定で暗黙のフラグが無いため、素の `sbx run` でよい。
 sbx create --name codex-approve-<ディレクトリ名> --clone --kit ./.sandbox/kit codex .
@@ -73,7 +78,7 @@ sbx run opencode --clone --kit ./.sandbox/kit
 
 同一ワークスペース・同一エージェントで複数の sandbox を並行させたい場合のみ `--name` で明示的に名前を付けます。
 
-> **`-g`（グローバル）は使わない:** `sbx secret set -g github` はユーザー全体のグローバル登録で、**以後作成するすべての sandbox（他リポジトリ含む）に注入され得ます**。`github` のような組み込みサービスは kit の宣言が無くても provenance で自動注入されるため、グローバル登録は「リポジトリごとに権限を区切る」本テンプレートの方針に反します。sandbox 名スコープで登録してください（グローバル値があっても sandbox-scoped が優先されます）。なお `sbx secret set` の引数形式は CLI バージョンで異なります。本 README は現行の `sbx secret set <service> --sandbox <sandbox名> [-t <token>]` 形式で記載しています（旧 CLI の `sbx secret set <sandbox名> <service>` 形式で動く環境もあります）— 差異が出たら `sbx secret set --help` で確認してください。
+> **`-g`（グローバル）は使わない:** `sbx secret set -g github` はユーザー全体のグローバル登録で、**以後作成するすべての sandbox（他リポジトリ含む）に注入され得ます**。`github` のような組み込みサービスは kit の宣言が無くても provenance で自動注入されるため、グローバル登録は「リポジトリごとに権限を区切る」本テンプレートの方針に反します。sandbox 名スコープで登録してください（グローバル値があっても sandbox-scoped が優先されます）。なお `sbx secret set` の引数形式は CLI バージョンで異なります。本 README は現行の `sbx secret set <service> --sandbox <sandbox名>` 形式で記載しています（旧 CLI の `sbx secret set <sandbox名> <service>` 形式で動く環境もあります）— 差異が出たら `sbx secret set --help` で確認してください。
 
 初回はエージェントごとの認証（Claude はブラウザログイン等）が必要です。認証を含む sandbox 内の状態は `sbx rm` するまで永続します。
 
@@ -251,10 +256,10 @@ curl -s https://example.com/ | head -1
 devcontainer の pass-cli 方式は**この環境には持ち込みません**。sbx のネイティブ機構を使います:
 
 ```bash
-# ホスト側で、対象の sandbox にスコープして登録
+# ホスト側で、対象の sandbox にスコープして登録。値は対話プロンプトで入力する
 # （名前は kit の credentials の service 名に合わせる。グローバル登録 -g は
 #   他リポジトリの sandbox にも波及するため使わない）
-sbx secret set example --sandbox <sandbox名> -t "<API キー>"
+sbx secret set example --sandbox <sandbox名>
 ```
 
 その上で kit の `credentials` にエントリを追加すると（spec.yaml 内にコメントアウトの雛形あり）、指定ドメイン宛のリクエストに限りホスト側プロキシがヘッダを注入します。VM 内の対応する環境変数（`apiKey.name`）には sentinel 値が入り、実値は送信直前にプロキシがヘッダを書き換える形でのみ使われます。kit の変更反映は sandbox の作り直し（`sbx rm` → 再 `run`）が必要ですが、sandbox-scoped の secret 自体は実行中でも即時反映されます。
@@ -270,6 +275,25 @@ pass-cli 方式との違い:
 | スコープ | プロジェクト別 vault | sandbox 単位（`-g` のグローバル登録は使わない） |
 
 環境変数としてシークレットの実値が必要なツール（ヘッダ注入で賄えないもの）が出てきた場合は、値が VM に入るトレードオフを理解した上で個別に検討してください。
+
+### トークンを画面・履歴に残さず登録する
+
+`sbx secret set` の `-t/--token` は、CLI リファレンス自身が **"less secure: visible in shell history"** と注記しているとおり、値をコマンドラインに書く形になります。本テンプレートでは使いません。代わりに次のいずれかを使ってください:
+
+| 方法 | コマンド | 値の所在 |
+|---|---|---|
+| 対話入力（既定） | `sbx secret set <service> --sandbox <sandbox名>` | sbx の secret ストア |
+| パスワードマネージャ参照 | `sbx secret set <service> --sandbox <sandbox名> --ref "op://<vault>/<item>/<field>"` | パスワードマネージャ（sbx は参照だけを保存） |
+| 任意コマンドの出力 | `sbx secret set <service> --sandbox <sandbox名> --command '<値を stdout に出すコマンド>'` | 同上 |
+
+- **`-t` を省くと値の入力を対話で求められます。** コマンドラインにもシェル履歴にも残りません。GitHub の画面で発行した PAT をコピペする、といったケースはこれが最短です
+- **`--ref`** は 1Password の `op://` 参照と AWS Secrets Manager の ARN を受け付けます。対応する `op` / `aws` CLI がホストにインストール済み・認証済みである必要があります
+- **`--command`** はホスト側でコマンドを実行し、その標準出力を値として使います。`--ref` が対応していないパスワードマネージャ（devcontainer 側で使っている Proton Pass の `pass-cli` など）はこちらで賄えます。`--command 'gh auth token'` も動きますが、それはユーザー全体のトークンであり、「リポジトリ単位のスコープ限定 PAT を、そのリポジトリの sandbox にだけ渡す」という本テンプレートの方針からは外れます
+- `--ref` / `--command` は**値そのものではなく取得元を保存**します。sbx が必要になったタイミングでホスト側で解決し、`--refresh`（既定 55m）に従ってキャッシュするため、失効時の差し替えが発行元だけで済みます
+- `--show-error`（source の検証に失敗したとき resolver の stderr を表示）は**エラー出力にシークレットが混じり得る**と注記されています。常用しないこと
+- やむを得ず `-t` を使う場合も、値を直接書かずコマンド置換にしてください（例: `-t "$(op read 'op://…')"`）。履歴には値が残りませんが、実行中は `ps` のプロセス引数に見えます
+
+> 対話プロンプトの有無は CLI のバージョンに依存し得ます。`-t` 無しで実行してプロンプトが出ない場合は `sbx secret set --help` を確認し、`--ref` / `--command` 側を使ってください。
 
 ## Chrome DevTools MCP（画面の見た目のデバッグ）
 
