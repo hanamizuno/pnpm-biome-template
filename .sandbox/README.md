@@ -158,6 +158,8 @@ fork kit は image・credentials・ネットワーク許可・volume・MCP 連�
 
 Claude Code の `.claude/settings.json`（`permissions.defaultMode: "auto"`）と Codex の `~/.codex/config.toml` seed（`approval_policy = "on-request"` / `approvals_reviewer = "auto_review"`）も同じ方針に揃えてありますが、**起動時フラグの方が強い**ため、sbx では方式 A / B が実効値を決めます。設定ファイル側は、devcontainer やホストでの実行、および Claude から Codex へ委譲したときのように起動コマンドを経由しない場合に効きます。
 
+なお **sbx は VM 内の user 設定（`~/.claude/settings.json`）にも `"defaultMode": "bypassPermissions"` を仕込んでいます**（実測。「sbx が自動で継承するもの」参照）。リポジトリ側の `.claude/settings.json` が優先されることを期待するのではなく、**起動時フラグで明示する**のが確実です。
+
 ## 日常運用
 
 - 同じワークスペースで `sbx run` すると**既存 sandbox に再接続**します（install は再実行されない）
@@ -227,7 +229,30 @@ devcontainer の `initialize.sh` に相当する処理の一部は sbx 側が組
 - **git identity** — `user.name` / `user.email` はホストの値が入っている（ステージング不要）
 - **グローバル gitignore** — `core.excludesFile` = `/home/agent/.gitignore_global` として配置済み
 - **`~/.claude/skills`** — ホストから **rw の virtiofs bind mount**（`mount | grep virtiofs` で確認できる）。つまりホストのスキル群が共有され、**エージェントが書き換えるとホスト側にも反映される**
-- 一方、ホストの `~/.claude/settings.json` は継承されません（VM 内には sbx 用の別内容が置かれる）。statusline のようなホスト固有設定が要る場合は kit の `setup.files` で書くか `sbx cp` で運ぶ
+
+Claude Code 関連で**継承されない**もの（VM 内で新規に作られる）: `~/.claude/settings.json`、`~/.claude/statusline-command.sh`（ファイル自体が無い）、`~/.claude.json`（MCP 登録・プロジェクト履歴）。リポジトリの `.claude/settings.json` は git clone 経由で入りますが、gitignore された `.claude/settings.local.json` は入りません。この kit も Claude Code の設定ファイルには触れていません（`claude mcp add -s user` / `claude plugin install` の副作用として書き換わるだけ）。
+
+> **VM の user 設定には sbx が YOLO を仕込んでいます。** `~/.claude/settings.json` に `"defaultMode": "bypassPermissions"` / `"skipDangerousModePermissionPrompt": true` / `"bypassPermissionsModeAccepted": true` が入っていることを実測しました。起動時フラグの方が強いので方式 A の手順（`sbx exec` + `--permission-mode auto`）では auto になりますが、**フラグを付けずに起動した場合の実効値は設定側の優先順位次第**です。「常に `sbx exec` + フラグで入る」というルールは、この意味でも守ってください。
+
+### ホストの Claude Code 設定を持ち込む
+
+statusline のようなホスト固有設定を入れたい場合の選択肢です。用途で選び分けます:
+
+| 手段 | 向いているもの | 注意 |
+|---|---|---|
+| kit の `setup.files` | チームで共有したい設定 | 内容がリポジトリにコミットされる。個人設定には不向き（gitignore した別 kit を `--kit` で重ねる手はある） |
+| `sbx cp` | 個人設定を作成後に一度だけ運ぶ | sandbox を作り直すたびに再実行が要る |
+| 追加ワークスペース `<path>:ro` | 参照させたいだけのファイル群 | **`~/.claude` を丸ごと渡さないこと**（`.credentials.json` などホストの実トークンが含まれる） |
+
+`sbx cp` で statusline を運ぶ例:
+
+```bash
+sbx cp ~/.claude/statusline-command.sh <sandbox名>:/home/agent/.claude/statusline-command.sh
+```
+
+- **`settings.json` を丸ごと上書きしないでください。** VM 側の `apiKeyHelper` などプロキシ管理の認証に必要なキーが消えます。`statusLine` のような必要なキーだけを追記する形にします
+- **ホームのパスを書き換える必要があります。** VM 内のホームは `/home/agent` で、devcontainer の `initialize.sh` がやっていた `sed "s|$HOME|/home/vscode|g"` に相当する処理が要ります
+- コピーしたファイルは sandbox 内にしか残りません。`sbx rm` で消えます
 
 ## ネットワークポリシーの監査
 
