@@ -2,12 +2,5 @@
 # （.github/dependabot.yml の cooldown.default-days: 7 と揃える。単位: 分）
 minimumReleaseAge: 10080
 
-# セキュリティ修正の先行取り込みが必要なパッケージのみ例外とする
-# js-yaml: CVE-2026-59870（GHSA-5p4m-2wfm-xmqj）の修正版 3.15.1 / 4.3.1 を待機期間前に導入
-# fast-uri: host confusion 脆弱性（GHSA 2件）の修正版 3.1.5 を待機期間前に導入
-minimumReleaseAgeExclude:
-  - js-yaml
-  - fast-uri
-
 allowBuilds:
   esbuild: true
