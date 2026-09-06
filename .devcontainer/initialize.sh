@@ -36,7 +36,7 @@ fi
 
 # --- Claude Code の settings + statusline ------------------------------------
 # 認証・状態（~/.claude.json、~/.claude/.credentials.json）は意図的にステージング
-# しない。認証はコンテナスコープのボリュームに留める（README 参照）。
+# しない。認証はコンテナスコープのボリュームに留める（docs/knowledge/runbooks/devcontainer.md 参照）。
 CLAUDE_STAGE=".devcontainer/host-claude"
 CONTAINER_HOME="/home/vscode"
 
@@ -78,7 +78,7 @@ fi
 # pass-cli のセッションが失効してもエージェントが自力で再ログインできる。
 # ステージはその直後に削除される。ホストにファイルが無ければ何もステージングされず、
 # コンテナは pass-cli のシークレットなしで通常どおり動く。
-# README「タスク用シークレット（Proton Pass / pass-cli）」を参照。
+# docs/knowledge/runbooks/devcontainer.md「タスク用シークレット」を参照。
 # 参照はプロジェクト別 (~/.config/proton-pass-agent/<ディレクトリ名>) を先に探し、
 # 無ければ共有デフォルト (~/.config/proton-pass-agent/pat) にフォールバックする。
 # プロジェクト別ファイルを置くだけで、そのプロジェクトを専用 vault の PAT に

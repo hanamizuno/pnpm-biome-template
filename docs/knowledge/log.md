@@ -1,5 +1,10 @@
 # Knowledge Bundle Update Log
 
+## 2026-09-05
+
+* **Move**: `.devcontainer/README.md` / `.sandbox/README.md` の詳細を [runbooks/devcontainer.md](/docs/knowledge/runbooks/devcontainer.md) と [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移動し、sbx の実機検証ログを [research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) へ切り出し。元の README はポインタのみに縮小。
+* **Trim**: `README.md` / `AGENTS.md` / バンドルの `index.md` を圧縮し、不要な表を箇条書きへ。
+
 ## 2026-07-02
 
 * **Add**: [research/](/docs/knowledge/research/index.md) 区画を追加（調査・比較検討のスナップショット置き場）。サンプルとして [research/sample-research.md](/docs/knowledge/research/sample-research.md) を配置。

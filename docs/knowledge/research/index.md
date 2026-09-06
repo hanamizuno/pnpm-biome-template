@@ -3,7 +3,7 @@ type: Index
 title: Research
 description: 調査・比較検討のスナップショット
 tags: [research]
-timestamp: 2026-07-02T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Research
@@ -12,4 +12,5 @@ deep research の出力、手動の調査、比較検討など — 後で意思�
 
 ## Index
 
+* [sbx-verification.md](sbx-verification.md) — Docker Sandboxes（sbx）kit の実機検証結果と未確認事項
 * [sample-research.md](sample-research.md) — サンプル。実際の調査ノートが書けたら置き換える (もしくは削除する)。
