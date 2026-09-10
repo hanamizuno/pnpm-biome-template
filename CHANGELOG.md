@@ -55,6 +55,7 @@
 
 ### Fixed
 
+- Security Audit の失敗を解消（推移的依存の js-yaml を 3.15.1/4.3.1 → 3.15.2/4.3.2、fast-uri を 3.1.5 → 3.1.7 へ更新。high 6 件は解消、残る vitest / @vitest/mocker の 2 件は moderate で `--audit-level=high` のゲート対象外）
 - AGENTS.md / README.md の不整合（`ES2023` → `ES2025`、存在しない `agent/`、Biome v1 表記、pre-commit フック名、古いディレクトリ構造）を修正
 - `package.json` の `scan:secrets` を `npx` から `pnpm exec` に変更（lockfile を尊重）
 - `.gitignore` に `.claude/settings.local.json` を明示
@@ -64,5 +65,6 @@
 ### Removed
 
 - `.npmrc` を削除（pnpm が読まない設定しか入っていなかったため。中身は `pnpm-workspace.yaml` へ移設）
+- `pnpm-workspace.yaml` の `minimumReleaseAgeExclude` を削除（js-yaml 3.15.2/4.3.2 と fast-uri 3.1.7 はいずれも待機期間 7 日を経過しており、例外指定なしで解決できるため）
 - `devcontainer.json` の冗長な `postStartCommand`
 - コントリビュート系ドキュメント（`SECURITY.md` / `CODE_OF_CONDUCT.md` / `CONTRIBUTING.md`）はテンプレートに含めない方針に変更
