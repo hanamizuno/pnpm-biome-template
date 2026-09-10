@@ -36,7 +36,7 @@ docs/knowledge/         # OKF v0.1 知識バンドル（architecture / adr / con
 .vscode/                # biome を既定フォーマッタに、保存時 fixAll
 .claude/settings.json   # Claude Code の既定権限モード（auto）
 tsconfig.json           # 型チェック用（build 用は tsconfig.build.json がテスト/ベンチを除外）
-biome.json / vitest.config.ts / pnpm-workspace.yaml / .npmrc / .nvmrc
+biome.json / vitest.config.ts / pnpm-workspace.yaml / .nvmrc
 .pre-commit-config.yaml # biome-check / typecheck / secretlint（prek install で有効化）
 ```
 

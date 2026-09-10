@@ -3,6 +3,7 @@
 ## 2026-09-10
 
 * **Add**: [adr/0002-pnpm-without-corepack.md](/docs/knowledge/adr/0002-pnpm-without-corepack.md) — pnpm の導入経路を corepack から `npm install -g` へ移した判断と理由。Node 25+ が corepack を同梱しなくなったことが動機。
+* **Add**: [adr/0003-pnpm-12-and-workspace-settings.md](/docs/knowledge/adr/0003-pnpm-12-and-workspace-settings.md) — pnpm 12 へのピン更新、`.npmrc` 設定の `pnpm-workspace.yaml` への移設、corepack 用 integrity ハッシュの撤去。ADR-0002 が先送りした更新の続き。
 
 ## 2026-09-05
 

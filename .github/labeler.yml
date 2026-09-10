@@ -28,7 +28,6 @@ meta:
           - "tsconfig.json"
           - "tsconfig.build.json"
           - "vitest.config.ts"
-          - ".npmrc"
           - ".pre-commit-config.yaml"
           - ".secretlintrc.json"
           - ".secretlintignore"

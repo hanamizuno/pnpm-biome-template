@@ -47,8 +47,8 @@ setup:
     - description: pnpm の導入（システム全体。既に同じ版が入っていれば no-op）
       command: |
         set -eu
-        if ! command -v pnpm >/dev/null 2>&1 || [ "$(pnpm --version)" != "11.9.0" ]; then
-          npm install -g pnpm@11.9.0
+        if ! command -v pnpm >/dev/null 2>&1 || [ "$(pnpm --version)" != "12.3.4" ]; then
+          npm install -g pnpm@12.3.4
         fi
 
     # storeDir を home 側に固定するのは、未指定だと pnpm がワークスペース直下に

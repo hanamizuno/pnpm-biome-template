@@ -30,6 +30,8 @@
 
 ### Changed
 
+- pnpm を 12.3.4 へ更新（Rust 実装。`packageManager` は corepack 用の `+sha512.` を外して `pnpm@12.3.4` に。pnpm 12 はピンをロックファイルの `packageManagerDependencies` に記録するため `pnpm-lock.yaml` を再生成。理由は [ADR-0003](docs/knowledge/adr/0003-pnpm-12-and-workspace-settings.md)）
+- pnpm 設定を `.npmrc` から `pnpm-workspace.yaml` へ移設（`autoInstallPeers` / `engineStrict` / `strictPeerDependencies`。pnpm は `.npmrc` から auth・registry 設定しか読まないため、これらは pnpm 11 の時点で既に無効だった）
 - pnpm の導入を corepack から `npm install -g pnpm@<version>` へ移行（Node 25+ が corepack を同梱しなくなり、pnpm 側も corepack を推奨しなくなったため。`Dockerfile` の base / devcontainer ステージと `.sandbox/kit/spec.yaml` が対象で、`COREPACK_HOME` と `COREPACK_ENABLE_DOWNLOAD_PROMPT` は削除。CI は元々 `pnpm/action-setup` のため変更なし。理由は [ADR-0002](docs/knowledge/adr/0002-pnpm-without-corepack.md)）
 - ドキュメントを圧縮し、詳細な運用手順を `docs/knowledge/` へ移動（`.devcontainer/README.md` → `runbooks/devcontainer.md`、`.sandbox/README.md` → `runbooks/agent-sandbox-sbx.md` + `research/sbx-verification.md`。元の README はポインタのみに縮小し、`README.md` / `AGENTS.md` も必要最低限へ）
 - TypeScript を 7 系（Go 製ネイティブコンパイラ）へ更新。TS7 に `tsserver` が含まれなくなったため `typescript.tsdk` 設定を撤去し、TypeScript 7 Language Server 拡張（`TypeScriptTeam.native-preview`）を推奨拡張・Dev Container 拡張に追加
@@ -61,5 +63,6 @@
 
 ### Removed
 
+- `.npmrc` を削除（pnpm が読まない設定しか入っていなかったため。中身は `pnpm-workspace.yaml` へ移設）
 - `devcontainer.json` の冗長な `postStartCommand`
 - コントリビュート系ドキュメント（`SECURITY.md` / `CODE_OF_CONDUCT.md` / `CONTRIBUTING.md`）はテンプレートに含めない方針に変更
