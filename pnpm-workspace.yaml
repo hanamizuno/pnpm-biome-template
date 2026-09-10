@@ -4,3 +4,9 @@ minimumReleaseAge: 10080
 
 allowBuilds:
   esbuild: true
+
+# pnpm は .npmrc から auth / registry 設定しか読まないため、これらはここに置く
+# （旧 .npmrc の auto-install-peers / engine-strict / strict-peer-dependencies）
+autoInstallPeers: true
+engineStrict: true
+strictPeerDependencies: false

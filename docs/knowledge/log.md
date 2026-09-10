@@ -1,5 +1,10 @@
 # Knowledge Bundle Update Log
 
+## 2026-09-10
+
+* **Add**: [adr/0002-pnpm-without-corepack.md](/docs/knowledge/adr/0002-pnpm-without-corepack.md) — pnpm の導入経路を corepack から `npm install -g` へ移した判断と理由。Node 25+ が corepack を同梱しなくなったことが動機。
+* **Add**: [adr/0003-pnpm-12-and-workspace-settings.md](/docs/knowledge/adr/0003-pnpm-12-and-workspace-settings.md) — pnpm 12 へのピン更新、`.npmrc` 設定の `pnpm-workspace.yaml` への移設、corepack 用 integrity ハッシュの撤去。ADR-0002 が先送りした更新の続き。
+
 ## 2026-09-05
 
 * **Move**: `.devcontainer/README.md` / `.sandbox/README.md` の詳細を [runbooks/devcontainer.md](/docs/knowledge/runbooks/devcontainer.md) と [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移動し、sbx の実機検証ログを [research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) へ切り出し。元の README はポインタのみに縮小。

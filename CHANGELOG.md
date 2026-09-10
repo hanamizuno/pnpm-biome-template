@@ -30,6 +30,9 @@
 
 ### Changed
 
+- pnpm を 12.3.4 へ更新（Rust 実装。`packageManager` は corepack 用の `+sha512.` を外して `pnpm@12.3.4` に。pnpm 12 はピンをロックファイルの `packageManagerDependencies` に記録するため `pnpm-lock.yaml` を再生成。理由は [ADR-0003](docs/knowledge/adr/0003-pnpm-12-and-workspace-settings.md)）
+- pnpm 設定を `.npmrc` から `pnpm-workspace.yaml` へ移設（`autoInstallPeers` / `engineStrict` / `strictPeerDependencies`。pnpm は `.npmrc` から auth・registry 設定しか読まないため、これらは pnpm 11 の時点で既に無効だった）
+- pnpm の導入を corepack から `npm install -g pnpm@<version>` へ移行（Node 25+ が corepack を同梱しなくなり、pnpm 側も corepack を推奨しなくなったため。`Dockerfile` の base / devcontainer ステージと `.sandbox/kit/spec.yaml` が対象で、`COREPACK_HOME` と `COREPACK_ENABLE_DOWNLOAD_PROMPT` は削除。CI は元々 `pnpm/action-setup` のため変更なし。理由は [ADR-0002](docs/knowledge/adr/0002-pnpm-without-corepack.md)）
 - ドキュメントを圧縮し、詳細な運用手順を `docs/knowledge/` へ移動（`.devcontainer/README.md` → `runbooks/devcontainer.md`、`.sandbox/README.md` → `runbooks/agent-sandbox-sbx.md` + `research/sbx-verification.md`。元の README はポインタのみに縮小し、`README.md` / `AGENTS.md` も必要最低限へ）
 - TypeScript を 7 系（Go 製ネイティブコンパイラ）へ更新。TS7 に `tsserver` が含まれなくなったため `typescript.tsdk` 設定を撤去し、TypeScript 7 Language Server 拡張（`TypeScriptTeam.native-preview`）を推奨拡張・Dev Container 拡張に追加
 - `tsconfig.json` を `nodenext` + `noUncheckedIndexedAccess` 等で厳格化、`types: ["node"]` を明示
@@ -52,6 +55,7 @@
 
 ### Fixed
 
+- Security Audit の失敗を解消（推移的依存の js-yaml を 3.15.1/4.3.1 → 3.15.2/4.3.2、fast-uri を 3.1.5 → 3.1.7 へ更新。high 6 件は解消、残る vitest / @vitest/mocker の 2 件は moderate で `--audit-level=high` のゲート対象外）
 - AGENTS.md / README.md の不整合（`ES2023` → `ES2025`、存在しない `agent/`、Biome v1 表記、pre-commit フック名、古いディレクトリ構造）を修正
 - `package.json` の `scan:secrets` を `npx` から `pnpm exec` に変更（lockfile を尊重）
 - `.gitignore` に `.claude/settings.local.json` を明示
@@ -60,5 +64,7 @@
 
 ### Removed
 
+- `.npmrc` を削除（pnpm が読まない設定しか入っていなかったため。中身は `pnpm-workspace.yaml` へ移設）
+- `pnpm-workspace.yaml` の `minimumReleaseAgeExclude` を削除（js-yaml 3.15.2/4.3.2 と fast-uri 3.1.7 はいずれも待機期間 7 日を経過しており、例外指定なしで解決できるため）
 - `devcontainer.json` の冗長な `postStartCommand`
 - コントリビュート系ドキュメント（`SECURITY.md` / `CODE_OF_CONDUCT.md` / `CONTRIBUTING.md`）はテンプレートに含めない方針に変更

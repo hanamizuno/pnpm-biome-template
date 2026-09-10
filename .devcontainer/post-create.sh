@@ -10,7 +10,7 @@ sudo chown vscode:vscode /workspace/node_modules "$HOME/.pnpm-store"
 # - 未指定だと pnpm はプロジェクトと同一 FS にストアを作るため /workspace/.pnpm-store
 #   （= ホストの checkout 直下）に漏れる
 # - volume なのでリビルド後もダウンロードキャッシュが残る
-# pnpm 11 のグローバル設定 (~/.config/pnpm/config.yaml) に直接書く。
+# pnpm のグローバル設定 (~/.config/pnpm/config.yaml) に直接書く。
 # `pnpm config set --global` はグローバル bin ディレクトリが PATH に無い
 # 非ログインシェルだと検証エラーで失敗するため使わない。
 mkdir -p "$HOME/.config/pnpm"
