@@ -40,7 +40,6 @@ services:
     environment:
       HISTFILE: /commandhistory/.bash_history
       PROMPT_COMMAND: history -a
-      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
 volumes:
   claude-config:
   codex-config:

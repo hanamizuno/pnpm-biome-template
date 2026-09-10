@@ -41,19 +41,23 @@ setup:
           apt-get install -y --no-install-recommends nodejs
         fi
 
-    - description: corepack の有効化（pnpm の shim を配置）
+    # pnpm は corepack ではなく npm で直接導入する
+    # （理由は /docs/knowledge/adr/0002-pnpm-without-corepack.md）。
+    # バージョンは package.json の packageManager と揃えること。
+    - description: pnpm の導入（システム全体。既に同じ版が入っていれば no-op）
       command: |
         set -eu
-        corepack enable
+        if ! command -v pnpm >/dev/null 2>&1 || [ "$(pnpm --version)" != "11.9.0" ]; then
+          npm install -g pnpm@11.9.0
+        fi
 
     # storeDir を home 側に固定するのは、未指定だと pnpm がワークスペース直下に
     # .pnpm-store を作ってしまうため（devcontainer と同じ理由）。clone モードでは
     # 作業ツリーを、direct モードではホストのチェックアウトを汚さずに済む。
-    - description: pnpm の準備と store の分離（agent ユーザー）
+    - description: pnpm store の分離（agent ユーザー）
       user: "1000"
       command: |
         set -eu
-        corepack prepare pnpm@11.9.0 --activate
         mkdir -p "$HOME/.config/pnpm"
         printf 'storeDir: %s\n' "$HOME/.pnpm-store" > "$HOME/.config/pnpm/config.yaml"
 
@@ -267,7 +271,9 @@ agentInstructions:
       された `/run/sandbox/source` から取り込む（`git fetch /run/sandbox/source`）。
       `origin` は GitHub を指しており、ホストの未 push コミットは含まれない。
     - gitignore されたファイル（ローカル設定など）はクローンに含まれない。
-    - パッケージ管理は pnpm（corepack 管理）。初回は `pnpm install --frozen-lockfile`。
+    - パッケージ管理は pnpm（corepack ではなく npm で導入済み。バージョンは
+      `package.json` の `packageManager` を pnpm 自身が解決する）。初回は
+      `pnpm install --frozen-lockfile`。
       TTY が無いため、pnpm が node_modules の purge 確認を求めて止まる場合は
       `CI=true` を付けて実行する。
     - 画面の見た目のデバッグには chrome-devtools MCP を使う（headless Chromium 同梱）。

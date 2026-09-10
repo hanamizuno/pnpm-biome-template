@@ -13,11 +13,11 @@ Node.js + pnpm + Biome の TypeScript プロジェクトテンプレート。
 ## セットアップ
 
 ```bash
-corepack enable
+npm install -g pnpm
 pnpm install
 ```
 
-pnpm のバージョンは `package.json` の `packageManager` から corepack が解決する。pre-commit hooks を使う場合は [prek](https://github.com/j178/prek) をインストールして `prek install`。
+pnpm のバージョンは `package.json` の `packageManager` を pnpm 自身が解決する（宣言と違うバージョンで起動しても、その版を取得して実行し直す）。pre-commit hooks を使う場合は [prek](https://github.com/j178/prek) をインストールして `prek install`。
 
 ## 主なコマンド
 
@@ -36,7 +36,7 @@ pnpm build          # tsc で dist/ に出力（start で実行）
 2. `LICENSE` のプレースホルダ（`[yyyy]` / `[name of copyright owner]`）を記入、またはライセンスごと差し替え
 3. `.github/CODEOWNERS` の `@REPLACE-ME` を実在のユーザー / チームに置換
 4. `docs/knowledge/` のサンプルを実プロジェクトの知識で差し替え（運用ルールは [docs/knowledge/index.md](docs/knowledge/index.md)）
-5. `corepack enable && pnpm install && pnpm release-check` で健全性を確認
+5. `npm install -g pnpm && pnpm install && pnpm release-check` で健全性を確認
 
 ## ドキュメント
 

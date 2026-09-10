@@ -60,7 +60,7 @@ sbx run opencode --clone --kit ./.sandbox/kit
 
 > **`-g`（グローバル）は使わない。** グローバル登録は他リポジトリの sandbox にも注入され得るため、「リポジトリごとに権限を区切る」方針に反する。`sbx secret set` の引数形式は CLI バージョンで異なるので、差異が出たら `sbx secret set --help` を見る。
 
-kit（`.sandbox/kit/spec.yaml`）が作成時にセットアップするもの: Node 24 + corepack + pnpm、headless Chromium + 日本語フォント + `chromium-no-sandbox` ラッパー、`chrome-devtools-mcp` の登録、Codex 設定 seed（既存があれば上書きしない）、委譲先 CLI（Codex / OpenCode）と Claude Code への Codex プラグイン登録、ネットワーク許可リストと GitHub PAT のヘッダ注入設定。
+kit（`.sandbox/kit/spec.yaml`）が作成時にセットアップするもの: Node 24 + pnpm（corepack 非経由）、headless Chromium + 日本語フォント + `chromium-no-sandbox` ラッパー、`chrome-devtools-mcp` の登録、Codex 設定 seed（既存があれば上書きしない）、委譲先 CLI（Codex / OpenCode）と Claude Code への Codex プラグイン登録、ネットワーク許可リストと GitHub PAT のヘッダ注入設定。
 
 ## YOLO 既定の上書き
 

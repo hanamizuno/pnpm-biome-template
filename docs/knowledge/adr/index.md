@@ -26,3 +26,4 @@ ADR のステータスが変わったら、フロントマターの `tags:` と�
 ## Index
 
 * [0001-sample-decision.md](0001-sample-decision.md) — サンプル。実際の ADR が書けたら置き換える (もしくは削除する)。
+* [0002-pnpm-without-corepack.md](0002-pnpm-without-corepack.md) — pnpm の導入を corepack から npm 直接インストールへ移す (Accepted)。

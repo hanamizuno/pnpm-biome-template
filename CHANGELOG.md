@@ -30,6 +30,7 @@
 
 ### Changed
 
+- pnpm の導入を corepack から `npm install -g pnpm@<version>` へ移行（Node 25+ が corepack を同梱しなくなり、pnpm 側も corepack を推奨しなくなったため。`Dockerfile` の base / devcontainer ステージと `.sandbox/kit/spec.yaml` が対象で、`COREPACK_HOME` と `COREPACK_ENABLE_DOWNLOAD_PROMPT` は削除。CI は元々 `pnpm/action-setup` のため変更なし。理由は [ADR-0002](docs/knowledge/adr/0002-pnpm-without-corepack.md)）
 - ドキュメントを圧縮し、詳細な運用手順を `docs/knowledge/` へ移動（`.devcontainer/README.md` → `runbooks/devcontainer.md`、`.sandbox/README.md` → `runbooks/agent-sandbox-sbx.md` + `research/sbx-verification.md`。元の README はポインタのみに縮小し、`README.md` / `AGENTS.md` も必要最低限へ）
 - TypeScript を 7 系（Go 製ネイティブコンパイラ）へ更新。TS7 に `tsserver` が含まれなくなったため `typescript.tsdk` 設定を撤去し、TypeScript 7 Language Server 拡張（`TypeScriptTeam.native-preview`）を推奨拡張・Dev Container 拡張に追加
 - `tsconfig.json` を `nodenext` + `noUncheckedIndexedAccess` 等で厳格化、`types: ["node"]` を明示
