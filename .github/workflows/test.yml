@@ -48,13 +48,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests with coverage
-        id: coverage
         run: |
-          {
-            echo "report<<EOF"
-            pnpm test:cov 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          pnpm test:cov 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage report
         # 1 マトリクスのみアップロード（メイン LTS）
@@ -68,19 +65,40 @@ jobs:
         # fork からの PR は GITHUB_TOKEN が read-only でコメントできないためスキップ
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && matrix.node-version == 24
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          COVERAGE_REPORT: ${{ steps.coverage.outputs.report }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const report = (process.env.COVERAGE_REPORT || "").trim();
+            const fs = require("node:fs");
+            const path = require("node:path");
 
             const runURL = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
             const downloadLink = `[HTMLレポートをArtifactsからダウンロード](${runURL})`;
 
-            const reportSection = report
-              ? `\n\n\`\`\`\n${report}\n\`\`\``
-              : "\n\nカバレッジデータがありません。";
+            // vitest の json-summary レポーター出力から Markdown 表を組み立てる
+            const summaryPath = "coverage/coverage-summary.json";
+            const metrics = ["statements", "branches", "functions", "lines"];
+            const fmt = (m) => {
+              const pct = typeof m.pct === "number" ? `${m.pct.toFixed(2)}%` : "-";
+              return `${pct} (${m.covered}/${m.total})`;
+            };
+            const row = (name, entry) =>
+              `| ${name} | ${metrics.map((k) => fmt(entry[k])).join(" | ")} |`;
+
+            let reportSection = "\n\nカバレッジデータがありません。";
+            if (fs.existsSync(summaryPath)) {
+              const { total, ...files } = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+              const fileRows = Object.entries(files)
+                .map(([file, entry]) => [path.relative(process.cwd(), file), entry])
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([file, entry]) => row(`\`${file}\``, entry));
+              const table = [
+                "| File | Statements | Branches | Functions | Lines |",
+                "| :--- | ---: | ---: | ---: | ---: |",
+                row("**All files**", total),
+                ...fileRows,
+              ].join("\n");
+              reportSection = `\n\n${table}`;
+            }
             const marker = "## テストカバレッジレポート";
             const body = `${marker}\n\n${downloadLink}${reportSection}`;
 
