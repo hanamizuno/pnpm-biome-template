@@ -52,7 +52,7 @@ setup:
         fi
 
     # storeDir を home 側に固定するのは、未指定だと pnpm がワークスペース直下に
-    # .pnpm-store を作ってしまうため（devcontainer と同じ理由）。clone モードでは
+    # .pnpm-store を作ってしまうため。clone モードでは
     # 作業ツリーを、direct モードではホストのチェックアウトを汚さずに済む。
     - description: pnpm store の分離（agent ユーザー）
       user: "1000"
@@ -62,8 +62,7 @@ setup:
         printf 'storeDir: %s\n' "$HOME/.pnpm-store" > "$HOME/.config/pnpm/config.yaml"
 
     # VM 内でもカーネルサンドボックスが使えない前提で --no-sandbox ラッパーを
-    # 用意する。パスを devcontainer（Dockerfile devcontainer ステージ）と
-    # 同一にすることで、MCP 登録コマンドと Codex 設定を両環境で共通化している。
+    # 用意し、MCP 登録コマンドと Codex 設定からはこの固定パスを参照する。
     # Chromium 本体の導入元は 2 系統:
     #   - Debian 系: apt の chromium（実体のあるパッケージ）
     #   - Ubuntu 系（sbx テンプレートは Ubuntu / arm64）: apt の chromium は
@@ -103,9 +102,9 @@ setup:
         command -v chromium >/dev/null 2>&1 || npx -y playwright@1.62.1 install chromium
         /usr/local/bin/chromium-no-sandbox --version
 
-    # バージョンは devcontainer 側で検証済みのものに固定（再現性と supply-chain
-    # 対策。更新時は devcontainer と揃えて上げる）。npx での都度取得にしないのは、
-    # ネットワークポリシーを絞った状態でも動かせるようにするため。
+    # バージョンは実機検証済みのものに固定（再現性と supply-chain 対策）。
+    # npx での都度取得にしないのは、ネットワークポリシーを絞った状態でも
+    # 動かせるようにするため。
     - description: Chrome DevTools MCP 本体
       command: |
         set -eu
@@ -127,12 +126,11 @@ setup:
 
     # --- オーケストレーション対応 ---------------------------------------------
     # claude sandbox を親（オーケストレーター）として、委譲先の Codex / OpenCode
-    # CLI を同居させる（devcontainer の post-create.sh と同じ構成の移植）。
+    # CLI を同居させる。
     # 自テンプレートに同梱済みの sandbox（codex / opencode 単体実行用）では
     # command -v ガードで no-op になるため、全 sandbox に適用しても無害。
     # バージョンは chrome-devtools-mcp / playwright と同じ方針で固定する
     # （再現性と supply-chain 対策）。値は clone モードの実機検証で入ったもの。
-    # 更新時は devcontainer 側（post-create.sh）と揃えて上げる。
     - description: Codex CLI / OpenCode CLI（テンプレート同梱済みならスキップ）
       command: |
         set -eu
@@ -236,8 +234,8 @@ credentials:
   # /docs/knowledge/runbooks/agent-sandbox-sbx.md「トークンを画面・履歴に残さず登録する」参照）。
   # VM 内の GH_TOKEN には sentinel 値が入り、実値は
   # プロキシが送信直前にヘッダを書き換える形でのみ使われる — 実値は VM に
-  # 入らない。PAT のスコープ方針は /docs/knowledge/runbooks/devcontainer.md「GitHub 権限の
-  # 制限（PAT）」と同じ。
+  # 入らない。PAT のスコープ方針は /docs/knowledge/runbooks/agent-sandbox-sbx.md「GitHub 権限の
+  # 制限（PAT）」を参照。
   - service: github
     apiKey:
       name: GH_TOKEN
@@ -283,6 +281,5 @@ agentInstructions:
     - GitHub 認証はホスト側プロキシが自動でヘッダ注入する。環境変数 GH_TOKEN の
       中身は sentinel（実値ではない）で、トークンの実値はこの環境に存在しない。
       値を読む・探す・表示する必要は一切ない。
-    - この環境に pass-cli / pass-relogin は無い（devcontainer 専用の仕組み）。
     - 外向き通信は deny-by-default のドメイン許可リスト制。kit はこのリポジトリの
       作業に必要な許可を追加しているだけで、実効ポリシー全体ではない。

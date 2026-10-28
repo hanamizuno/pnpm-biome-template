@@ -8,7 +8,7 @@ Node.js + pnpm + Biome の TypeScript プロジェクトテンプレート。
 - pre-commit hooks（biome / typecheck / secretlint）
 - GitHub Actions CI: Node 24・25 マトリクス、依存自動更新、PR 自動ラベリング、アクションと Docker ベースイメージの digest 固定
 - セキュリティ: secretlint / pnpm audit / Trivy（SARIF を Security タブへ）、CycloneDX SBOM、hadolint / actionlint / zizmor
-- AI エージェント実行環境: Dev Container（Claude Code / Codex / OpenCode / Pi + Chrome DevTools MCP）と [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit（`.sandbox/`）
+- AI エージェント実行環境: [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit（`.sandbox/` — Claude Code / Codex / OpenCode + Chrome DevTools MCP）
 
 ## セットアップ
 
@@ -42,7 +42,6 @@ pnpm build          # tsc で dist/ に出力（start で実行）
 
 - [AGENTS.md](AGENTS.md) — ディレクトリ構成・開発規約（AI エージェント向けガイドライン）
 - [docs/knowledge/](docs/knowledge/) — 意思決定・背景・運用手順の知識バンドル
-  - [Dev Container 運用](docs/knowledge/runbooks/devcontainer.md) — エージェント環境のセットアップ・認証・シークレット
   - [sbx 運用](docs/knowledge/runbooks/agent-sandbox-sbx.md) — microVM 隔離でのエージェント実行
 
 ## リリース

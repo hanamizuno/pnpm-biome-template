@@ -6,7 +6,7 @@ AI コーディングエージェント向けのガイドライン。ユーザ�
 
 Node.js + pnpm + Biome の TypeScript テンプレート。フォーマット・リントは Biome、テストは vitest。
 
-コンテナ構成は `Dockerfile`（`dev` / `prod` / `devcontainer` のマルチステージ）と `compose.dev.yml` / `compose.yml`。Dev Container は開発環境と AI エージェント実行環境を兼ね、より強い隔離が要る場合は Docker Sandboxes（`sbx`）用 kit（`.sandbox/`、ホスト側で実行）を使う。詳細は [Dev Container 運用](docs/knowledge/runbooks/devcontainer.md) と [sbx 運用](docs/knowledge/runbooks/agent-sandbox-sbx.md)。
+コンテナ構成は `Dockerfile`（`dev` / `prod` のマルチステージ）と `compose.dev.yml` / `compose.yml`。AI エージェントは Docker Sandboxes（`sbx`）用 kit（`.sandbox/`、ホスト側で実行）で microVM 内に隔離して実行する。詳細は [sbx 運用](docs/knowledge/runbooks/agent-sandbox-sbx.md)。
 
 ## 開発コマンド
 
@@ -30,7 +30,6 @@ pnpm add [-D] <package>          # 依存追加
 ```
 src/                    # main.ts / main.test.ts / main.bench.ts
 docs/knowledge/         # OKF v0.1 知識バンドル（architecture / adr / conventions / runbooks / research）
-.devcontainer/          # Dev Container 定義（compose.yaml + initialize / post-create / post-start フック）
 .sandbox/               # Docker Sandboxes（sbx）用 kit
 .github/                # workflows / dependabot / labels / Issue・PR テンプレート
 .vscode/                # biome を既定フォーマッタに、保存時 fixAll
@@ -55,9 +54,7 @@ biome.json / vitest.config.ts / pnpm-workspace.yaml / .nvmrc
 - 論理的な単位で小さくコミットする
 - コードから読み取れない意思決定・背景・運用知見は `docs/knowledge/` に記録する（運用ルールは [docs/knowledge/index.md](docs/knowledge/index.md)）
 
-## シークレットの扱い（Proton Pass / pass-cli）
+## シークレットの扱い
 
-- シークレットをコミットしないこと。タスク用シークレット（API キー、トークン）は ambient な環境変数ではなく Proton Pass（`pass-cli`）から取得する。必要なコマンドは `PROTON_PASS_AGENT_REASON="<取得理由>" pass-cli run --env-file .env -- <cmd>` で実行する（`.env` には `pass://` 参照だけを書く。`example.env` からコピー）。
-- `pass-cli` が認証エラーを返したとき、またはセッションが無いとき（`pass-cli info` が失敗するとき）は `.devcontainer/pass-relogin` を実行してからリトライする。コンテナ内に配備済みのトークンからセッションを復元し、`gh` 認証が無ければ seed もする。
-- `~/.local/state/proton-pass-agent/pat` を読む・表示する・コピーすることは禁止 — トークンの値を扱う必要は一切なく、`pass-relogin` がすべて処理する。
-- Docker Sandboxes（sbx）環境には pass-cli は存在しない（devcontainer 専用の仕組み）。GitHub 認証等はサンドボックスのホスト側プロキシが自動でヘッダ注入するため、トークン値の取得を試みないこと。判別方法: `pass-cli` コマンドが無ければ sbx 環境。
+- シークレットをコミットしないこと。
+- GitHub 認証やタスク用シークレットは sbx のホスト側プロキシが HTTP ヘッダに自動注入する。環境変数（`GH_TOKEN` 等）の中身は sentinel で実値ではないため、トークン値の取得・表示を試みないこと。新しいシークレットが要る場合は `.sandbox/kit/spec.yaml` の `credentials` に追加し、ホストで `sbx secret set` する（[sbx 運用](docs/knowledge/runbooks/agent-sandbox-sbx.md)「タスク用シークレット」）。

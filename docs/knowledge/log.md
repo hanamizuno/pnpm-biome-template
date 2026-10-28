@@ -1,5 +1,9 @@
 # Knowledge Bundle Update Log
 
+## 2026-10-28
+
+* **Remove**: `runbooks/devcontainer.md` を廃止。エージェント実行環境を sbx に一本化したため。PAT のスコープ方針は [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移設し、[research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) の「devcontainer 縮退の判断基準」も削除。
+
 ## 2026-09-10
 
 * **Add**: [adr/0002-pnpm-without-corepack.md](/docs/knowledge/adr/0002-pnpm-without-corepack.md) — pnpm の導入経路を corepack から `npm install -g` へ移した判断と理由。Node 25+ が corepack を同梱しなくなったことが動機。
@@ -7,7 +11,7 @@
 
 ## 2026-09-05
 
-* **Move**: `.devcontainer/README.md` / `.sandbox/README.md` の詳細を [runbooks/devcontainer.md](/docs/knowledge/runbooks/devcontainer.md) と [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移動し、sbx の実機検証ログを [research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) へ切り出し。元の README はポインタのみに縮小。
+* **Move**: `.devcontainer/README.md` / `.sandbox/README.md` の詳細を `runbooks/devcontainer.md`（2026-10-28 廃止）と [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移動し、sbx の実機検証ログを [research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) へ切り出し。元の README はポインタのみに縮小。
 * **Trim**: `README.md` / `AGENTS.md` / バンドルの `index.md` を圧縮し、不要な表を箇条書きへ。
 
 ## 2026-07-02

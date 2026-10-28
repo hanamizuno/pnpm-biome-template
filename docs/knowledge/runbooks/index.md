@@ -12,6 +12,5 @@ timestamp: 2026-09-05T00:00:00Z
 
 ## Index
 
-* [devcontainer.md](devcontainer.md) — Dev Container のセットアップ・認証・シークレット運用
 * [agent-sandbox-sbx.md](agent-sandbox-sbx.md) — Docker Sandboxes（sbx）でのエージェント実行
 * [sample-runbook.md](sample-runbook.md) — サンプル。実際の手順が書けたら置き換える（もしくは削除する）。

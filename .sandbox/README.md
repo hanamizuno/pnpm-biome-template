@@ -7,7 +7,7 @@
 
 ## 使い方
 
-**ホスト側で実行する**（devcontainer の中からは使えない）。sandbox 名は `sbx ls` で確認できる。
+**ホスト側で実行する**（VM の中からは使えない）。sandbox 名は `sbx ls` で確認できる。
 
 ```bash
 # sandbox を作る（--clone は必須。エージェントはまだ起動しない）

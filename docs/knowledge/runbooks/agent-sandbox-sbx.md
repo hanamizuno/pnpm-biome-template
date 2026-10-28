@@ -8,9 +8,9 @@ timestamp: 2026-09-05T00:00:00Z
 
 # AI エージェント Sandbox（Docker Sandboxes / sbx）
 
-[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)（`sbx`）で AI エージェントを microVM 内で実行する構成。kit は `.sandbox/` にある。[Dev Container](/docs/knowledge/runbooks/devcontainer.md) と併存し、人間の対話的開発は devcontainer、エージェントの無人実行や強い隔離が要るタスクは sbx、という使い分け。
+[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)（`sbx`）で AI エージェントを microVM 内で実行する構成。kit は `.sandbox/` にある。本テンプレートのエージェント実行環境はこれに一本化している。
 
-devcontainer に対する追加の保証:
+保証:
 
 - **microVM 境界** — 独立カーネル。コンテナエスケープにつながる脆弱性も封じ込める
 - **deny-by-default のネットワーク** — 外向き TCP は許可リストのドメインのみ（UDP / ICMP は遮断）
@@ -19,7 +19,7 @@ devcontainer に対する追加の保証:
 
 検証状況と未確認事項は [sbx 実機検証](/docs/knowledge/research/sbx-verification.md) を参照。
 
-> `sbx` は**ホスト OS 上で実行する**。devcontainer の中からは使えない。
+> `sbx` は**ホスト OS 上で実行する**。VM の中からは使えない。
 
 ## 前提とインストール
 
@@ -132,7 +132,7 @@ sbx create --name claude-auto-<ディレクトリ名> --clone --kit ./.sandbox/k
 
 ## sbx が自動で継承するもの
 
-devcontainer の `initialize.sh` に相当する処理の一部は sbx 側が組み込みで行う（claude テンプレートで実測）:
+ホスト設定の一部は sbx 側が組み込みで VM へ持ち込む（claude テンプレートで実測）:
 
 - git identity（`user.name` / `user.email`）はホストの値が入る
 - グローバル gitignore は `/home/agent/.gitignore_global` に配置される
@@ -162,9 +162,18 @@ curl -s https://example.com/ | head -1
 
 デフォルトポリシーは `console.anthropic.com` / `claude.ai` / `opencode.ai` を許可していないため、kit の allow に追加してある。テレメトリ系（`sentry.io` 等）は拒否のままが望ましい。
 
+## GitHub 権限の制限（PAT）
+
+エージェントの `gh` / `git push` は注入されるトークンのスコープをそのまま使うため、権限は PAT 側でしか絞れない。普段使いのトークン（`gh auth token`）ではなく、sandbox 専用の fine-grained PAT を `sbx secret set github --sandbox <sandbox名>` で登録する。
+
+- 発行: [事前入力済みテンプレート](https://github.com/settings/personal-access-tokens/new?name=agent-sandbox&description=Agent%20sandbox%20baseline&expires_in=90&contents=write&pull_requests=write&issues=write&metadata=read&actions=read&workflows=write)（Contents/PR/Issues Write + Metadata/Actions Read + Workflows Write、90 日）。`Administration: Write` はベースラインに含めない
+- 必要権限の目安: 読み取りだけなら Issues/PR/Metadata Read、コメントや PR 操作を足すなら Issues/PR Write、`git push` するなら Contents Write、Actions の dispatch なら Actions Write、workflow YAML を編集させるなら Workflows Write
+- fine-grained PAT は `gh` の一部サブコマンドが未対応。403 が返るときは最小スコープの classic PAT にフォールバック
+- ローテーションは `sbx secret set` で差し替えるだけでよい（sandbox-scoped の secret は実行中でも即時反映）
+
 ## タスク用シークレット
 
-devcontainer の pass-cli 方式は持ち込まず、sbx のネイティブ機構を使う。
+sbx のネイティブ機構（ホスト側プロキシによる credential 注入）を使う。
 
 ```bash
 sbx secret set example --sandbox <sandbox名>   # 名前は kit の credentials の service 名に合わせる
@@ -172,15 +181,7 @@ sbx secret set example --sandbox <sandbox名>   # 名前は kit の credentials 
 
 kit の `credentials` にエントリを追加すると（spec.yaml にコメントアウトの雛形あり）、指定ドメイン宛のリクエストにのみホスト側プロキシがヘッダを注入する。VM 内の環境変数には sentinel 値が入る。kit の変更反映には作り直しが要るが、sandbox-scoped の secret は実行中でも即時反映される。
 
-pass-cli 方式との違い:
-
-| | pass-cli（devcontainer） | sbx credential 注入 |
-|---|---|---|
-| 値の所在 | コンテナ内（PAT ファイル + セッション） | ホストのみ。VM に実値が入らない |
-| 注入単位 | コマンド単位の環境変数 | ドメイン限定の HTTP ヘッダ |
-| 侵害時 | コンテナ侵害 = PAT 侵害（vault スコープで限定） | VM 侵害でも値は漏れない（許可ドメインへの悪用のみ） |
-| 失効運用 | Proton 側で revoke | secret の差し替え + 発行元で revoke |
-| スコープ | プロジェクト別 vault | sandbox 単位 |
+エージェントは無人で動き、自分の環境変数はすべて読める。環境変数の読み取りはコマンド実行を伴わないため承認機構では止められない。credential 注入なら実値はホストにしか無く、VM が侵害されても値は漏れない（許可ドメインへの悪用のみ）。失効は secret の差し替え + 発行元での revoke で行う。
 
 環境変数として実値が要るツールが出てきた場合は、値が VM に入るトレードオフを理解したうえで個別に判断する。
 
@@ -196,7 +197,7 @@ pass-cli 方式との違い:
 
 ## Chrome DevTools MCP
 
-devcontainer と同様、VM 内の headless Chromium で画面を確認できる。sandbox 内での確認:
+VM 内の headless Chromium で画面を確認できる。sandbox 内での確認:
 
 ```bash
 claude mcp list                      # chrome-devtools が出ること
@@ -209,7 +210,7 @@ Codex は kit が seed する `~/.codex/config.toml` の `[mcp_servers.chrome-de
 
 sandbox はテンプレートイメージ単位だが、kit が委譲先 CLI を同居させるため、claude sandbox は Claude Code を親にしたオーケストレーション環境として使える。
 
-- kit が Codex CLI / OpenCode CLI を入れ、Codex を Claude Code のプラグイン（`codex-rescue` + `/codex`）として登録する（devcontainer の `post-create.sh` と同じ構成。単体実行用 sandbox では `command -v` ガードで no-op）
+- kit が Codex CLI / OpenCode CLI を入れ、Codex を Claude Code のプラグイン（`codex-rescue` + `/codex`）として登録する（単体実行用 sandbox では `command -v` ガードで no-op）
 - Codex 設定 seed も共通なので、委譲実行が承認待ちで止まらない
 - 委譲先の認証は、sandbox 内での対話ログイン（`sbx rm` まで永続）か、プロキシ注入（`sbx secret set openai --sandbox <sandbox名>`）。サブスクリプション認証なら対話ログイン一択
 

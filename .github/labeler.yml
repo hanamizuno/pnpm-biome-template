@@ -3,7 +3,7 @@
 # コンテナ、ツーリング設定）を変更する PR にラベルを付ける。
 #
 # 注意: labeler の `dot` オプションはデフォルト true のため、.github/ や
-# .devcontainer/ のような dot 始まりのパスも特別扱いなしでマッチする。
+# .sandbox/ のような dot 始まりのパスも特別扱いなしでマッチする。
 # 意図的な除外: pnpm-lock.yaml（定常的な依存更新のため）、.nvmrc（Node の
 # 更新は必ず Dockerfile 等を同時に触るため単独でマッチさせる必要がない）。
 
@@ -20,7 +20,7 @@ meta:
           - ".dockerignore"
           - "compose.yml"
           - "compose.dev.yml"
-          - ".devcontainer/**"
+          - ".sandbox/**"
           # ツーリング / エディタ設定
           - "package.json"
           - "pnpm-workspace.yaml"
