@@ -1,7 +1,7 @@
 ---
 type: Research
 title: sbx 実機検証の結果と未確認事項
-description: Docker Sandboxes（sbx）kit の検証ログ・残課題・devcontainer 縮退の判断基準
+description: Docker Sandboxes（sbx）kit の検証ログと残課題
 tags: [sandbox, verification]
 timestamp: 2026-09-05T00:00:00Z
 ---
@@ -77,11 +77,3 @@ claude テンプレート + Claude Max、`sbx create --clone --kit ./.sandbox/ki
 12. `sbx run opencode --clone --kit ./.sandbox/kit` — 起動とタスク実行
 13. 抜けて再度入る → 再接続（install が走らない）。`sbx rm` → 作り直しで install が走る。**方式 A では再接続も `sbx exec`**
 14. VM 内でコミットして `git push` → GitHub に反映。ホストから `git fetch sandbox-<sandbox名>` でも取り出せること
-
-## devcontainer からエージェントを除去する判断基準
-
-以下がすべて満たされたら、devcontainer を「人間の VS Code 開発環境」へ縮退させる（別 PR）:
-
-- sbx 側で日常タスク一式（テスト / MCP での画面確認 / gh・PR 操作 / Codex・OpenCode の無人実行）が 2〜4 週間、devcontainer にフォールバックせず回っている
-- pass-cli の全ユースケース（gh、git push、タスク用 API キー）が credential 注入で代替できている
-- 除去範囲を確定できている: `post-create.sh` のエージェント導入 + MCP ブロック、`Dockerfile` の Chromium / pass-cli レイヤ、`compose.yaml` の認証 volume 群、`codex-config.toml`、pass-cli 関連ドキュメント。Pi（sbx 非対応）を使い続けるかもこのとき判断する

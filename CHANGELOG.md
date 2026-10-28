@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- Dev Container 一式を削除し、AI エージェント実行環境を Docker Sandboxes（`sbx`、`.sandbox/`）に一本化（`.devcontainer/`、`Dockerfile` の `devcontainer` ステージ、Proton Pass / pass-cli によるシークレット運用と `example.env`、`dependabot.yml` の `devcontainers` エコシステム、`runbooks/devcontainer.md`）
+
 ### Added
 
 - PR 自動ラベリングを追加（actions/labeler + `.github/labeler.yml` — ハーネス変更 PR に `meta` ラベルを自動付与。fork からの PR はスキップ、`pnpm-lock.yaml` / `.nvmrc` は対象外）

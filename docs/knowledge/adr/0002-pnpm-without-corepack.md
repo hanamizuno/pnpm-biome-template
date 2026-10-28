@@ -47,4 +47,4 @@ pnpm 12 への更新は別の判断として切り離す。本 ADR の範囲は 
 * `pnpm self-update` と `pnpm doctor` が正常に使えるようになる。
 * pnpm のバージョン文字列が 4 箇所（`package.json` の `packageManager`、`Dockerfile` ×2、`.sandbox/kit/spec.yaml`）に散る点は corepack 時代から変わらない。**バージョンを上げるときは 4 箇所すべてを揃えること。** 揃え忘れてもインストールは失敗せず、`pmOnFail: download` の既定により pnpm が宣言された版を実行時にダウンロードして動く — 壊れないが、イメージに焼いた版が使われず起動が遅くなる形で表面化する。
 * イメージビルド時に npm レジストリへの到達性が要る。corepack も同じくダウンロードが必要だったので、ネットワーク要件としては同等。
-* 既存のコンテナ／サンドボックスには自動では反映されない。Dev Container は rebuild、sbx は `sbx rm` → `sbx run` で作り直す（[runbooks/devcontainer.md](/docs/knowledge/runbooks/devcontainer.md)、[runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md)）。
+* 既存のコンテナ／サンドボックスには自動では反映されない。Dev Container は rebuild、sbx は `sbx rm` → `sbx run` で作り直す（`runbooks/devcontainer.md`（2026-10-28 廃止）、[runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md)）。
