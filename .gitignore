@@ -142,3 +142,6 @@ dist
 
 # Claude Code (ローカル専用設定)
 .claude/settings.local.json
+
+# sbx の個人用環境ファイル overlay (docs/knowledge/runbooks/agent-sandbox-sbx.md 参照)
+.sandbox/local.yaml

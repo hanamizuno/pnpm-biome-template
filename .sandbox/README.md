@@ -1,35 +1,42 @@
 # .sandbox
 
-[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)（`sbx`）でエージェントを microVM 内で動かすための kit。
+[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)（`sbx`）でエージェントを microVM 内で動かすための kit。[kit 仕様 v3](https://github.com/docker/sandbox-kit-spec/blob/main/docs/spec/SPEC-v3.md)（sbx v0.51.0 以上）。
 
-- `kit/` — 共有 mixin（Node + pnpm + Chromium + MCP + ネットワーク / credential ルール）
-- `claude-auto/` / `codex-approve/` — 既定の YOLO 起動を差し替える fork kit
+- `kit/` — 共有 mixin（Node + pnpm + Chromium + MCP + Codex / OpenCode CLI + ネットワーク / credential ルール）
+- `claude-auto/` / `codex-approve/` — [環境ファイル](https://docs.docker.com/ai/sandboxes/configuration/environment-files/)（`sbxenv.yaml`）。agent・kit・clone モードを固定し、既定の YOLO 起動を差し替える
 
 ## 使い方
 
-**ホスト側で実行する**（VM の中からは使えない）。sandbox 名は `sbx ls` で確認できる。
+**ホスト側で実行する**（VM の中からは使えない）。sandbox 名は checkout のディレクトリ名から `claude-<ディレクトリ名>` / `codex-<ディレクトリ名>` になる（`sbx ls` で確認できる）。
 
 ```bash
-# sandbox を作る（--clone は必須。エージェントはまだ起動しない）
-sbx create --clone --kit ./.sandbox/kit claude .
+# 作られるもの（sandbox・kit・git remote・起動コマンド）を確認する
+sbx env plan ./.sandbox/claude-auto
 
-# 起動する（sbx run で入ると既定の YOLO entrypoint が起動するので毎回この形で入る）
-sbx exec -it -w "$PWD" claude-<ディレクトリ名> claude --permission-mode auto
+# 初回は作成して接続、2 回目以降は再接続（変更があるたびに一度だけ承認を求められる）。
+# 毎回この形で入る（sbx run / sbx env exec だと既定の YOLO 起動になる）
+sbx env run ./.sandbox/claude-auto
 
-# GitHub の fine-grained PAT をこの sandbox にだけ登録（値は対話入力）
+# GitHub の fine-grained PAT をこの sandbox にだけ登録（値は対話入力。作成後でも即時に効く）
 sbx secret set github --sandbox claude-<ディレクトリ名>
 
-# 一覧 / 停止 / 削除（rm は VM 内の全状態を消す。push していないコミットも失われる）
+# Codex も同様
+sbx env run ./.sandbox/codex-approve
+
+# 一覧 / 停止 / 削除（env rm は VM 内の全状態を消す。push していないコミット、
+# この sandbox の secret、sandbox-<sandbox名> リモートも消える）
 sbx ls
-sbx stop <sandbox名>
-sbx rm <sandbox名>
+sbx stop claude-<ディレクトリ名>
+sbx env rm ./.sandbox/claude-auto
 ```
 
-kit を更新したら `sbx rm` → 作り直しで反映する。
+`--` の後ろの引数は起動引数を**丸ごと置き換える**ので、権限フラグも書き直す: `sbx env run ./.sandbox/claude-auto -- --permission-mode auto --continue`。
+
+kit を更新したら `sbx env rm` → `sbx env run` で作り直して反映する。OpenCode は組み込み kit と本 kit が組み合わせられないため、claude sandbox 内の `opencode` CLI を使う。
 
 ## ホスト側で変更を確認する
 
-`--clone` なので sandbox 内のコミットはホストへ自動では来ない。起動中の sandbox は git-daemon を公開しているので、`sandbox-<sandbox名>` リモートから取る。
+clone モードなので sandbox 内のコミットはホストへ自動では来ない。起動中の sandbox は git-daemon を公開しているので、`sandbox-<sandbox名>` リモートから取る。
 
 ```bash
 # 一時的に中身だけ確認する

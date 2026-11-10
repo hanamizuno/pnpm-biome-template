@@ -1,5 +1,11 @@
 # Knowledge Bundle Update Log
 
+## 2026-11-09
+
+* **sbx v0.51.0 / kit 仕様 v3 対応**: 組み込みエージェントが v3 kit になり、v2 kit と組み合わせられなくなったため更新。
+  * [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) — 起動を `sbx create` + `sbx exec` から環境ファイル（`sbx env run`）に変更、fork kit を廃止、v2 → v3 の対応表を追加。
+  * [research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) — v0.51.0 での実測（Debian 13 ベース、pnpm 12.3.4 の npm 導入、codex kit 独自の seed、opencode kit 非互換、作成後の secret、read-only の skills、git identity 非継承）を追加。
+
 ## 2026-10-28
 
 * **Remove**: `runbooks/devcontainer.md` を廃止。エージェント実行環境を sbx に一本化したため。PAT のスコープ方針は [runbooks/agent-sandbox-sbx.md](/docs/knowledge/runbooks/agent-sandbox-sbx.md) へ移設し、[research/sbx-verification.md](/docs/knowledge/research/sbx-verification.md) の「devcontainer 縮退の判断基準」も削除。
