@@ -1,0 +1,29 @@
+# Docker Sandboxes の環境ファイル: Claude Code を auto 権限モードで起動する。
+#
+# 組み込み claude kit の既定起動コマンドは `claude --dangerously-skip-permissions`
+# （= 権限チェックを全面的に飛ばす）。`sbx run claude -- <args>` は既定フラグの
+# 「後ろに追加」されるだけで打ち消せず、v3 kit には fork（extends）も無いため、
+# 環境ファイルの entrypoint / cmd で `sbx env run` の起動コマンドを丸ごと置き換える。
+#
+# 使い方（ホスト側、リポジトリの checkout から）:
+#   sbx env run ./.sandbox/claude-auto
+#
+# entrypoint / cmd が効くのは `sbx env run` だけ。`sbx run` / `sbx env exec` で
+# 入ると既定の YOLO 起動になるので、再接続も必ず `sbx env run` で行う。
+# 詳細は /docs/knowledge/runbooks/agent-sandbox-sbx.md「YOLO 既定の上書き」。
+#
+# name は書かない — sandbox 名は `claude-<checkout のディレクトリ名>` になり、
+# テンプレートから作ったプロジェクトごとに別の sandbox になる。
+schemaVersion: "1"
+agent: claude
+kits:
+  - ../kit
+workspace:
+  # 環境ファイルの場所から解決される相対パス（= リポジトリルート）
+  path: ../..
+  # 必須（同「clone モードで運用する」）
+  clone: true
+# entrypoint と cmd の両方を明示して、組み込み kit の既定（bypass フラグ）を
+# 一切継承しない。
+entrypoint: [claude]
+cmd: [--permission-mode, auto]

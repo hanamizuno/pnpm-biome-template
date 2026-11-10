@@ -43,9 +43,11 @@ biome.json / vitest.config.ts / pnpm-workspace.yaml / .nvmrc
 
 ## CI
 
-`lint`（biome ci + tsc + secretlint）/ `test`（カバレッジを PR にコメント）/ `lint_gha`（actionlint + zizmor）/ `lint_docker`（hadolint）/ `security`（pnpm audit + Trivy、日次）/ `sbom` / `deps-update`（週次）/ `label_pr` / `labels`。
+`lint`（biome ci + tsc + secretlint）/ `test`（カバレッジを PR にコメント）/ `lint_gha`（actionlint + zizmor）/ `verify_lockfile`（`gh actions-lock --verify`）/ `lint_docker`（hadolint）/ `security`（pnpm audit + Trivy、日次）/ `sbom` / `deps-update`（週次）/ `label_pr` / `labels`。
 
-共通規約: top-level `permissions: {}` + job 単位の最小権限、`concurrency`、`timeout-minutes`、アクションの commit SHA 固定（`.zizmor.yml` の `hash-pin` で強制）。
+共通規約: top-level `permissions: {}` + job 単位の最小権限、`concurrency`、`timeout-minutes`、アクションは `.github/workflows/actions.lock`（[Actions lockfile](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)）で推移的依存まで commit に固定し、`uses:` はリリースタグで書く（`.zizmor.yml` の `hash-pin` は lockfile の固定も pin として扱う。zizmor 1.32.0+）。Docker アクションは lockfile の対象外なので `@sha256:` digest で固定する。
+
+ワークフローを追加したり `uses:` 行を変えたら `gh actions-lock`（拡張: `gh extension install github/gh-actions-lock`）を実行し、更新された `actions.lock` をコミットする。手で編集しない。対応するエントリがないアクションは runner が実行を拒否する。
 
 ## 開発のベストプラクティス
 

@@ -4,6 +4,8 @@
 rules:
   unpinned-uses:
     config:
-      # すべてのアクションを commit hash（docker は digest）で固定する
+      # すべてのアクションを commit hash（docker は digest）で固定する。
+      # .github/workflows/actions.lock で固定されたタグ参照も pin 済みとして扱われる
+      # （zizmor 1.32.0+。lockfile を外すと unpinned-uses になる）
       policies:
         "*": hash-pin
