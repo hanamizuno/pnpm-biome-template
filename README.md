@@ -6,7 +6,7 @@ Node.js + pnpm + Biome の TypeScript プロジェクトテンプレート。
 
 - TypeScript / Biome（フォーマット・リント）/ vitest（テスト・ベンチ・カバレッジ 80%）
 - pre-commit hooks（biome / typecheck / secretlint）
-- GitHub Actions CI: Node 24・25 マトリクス、依存自動更新、PR 自動ラベリング、アクションと Docker ベースイメージの digest 固定
+- GitHub Actions CI: Node 24・25 マトリクス、依存自動更新、PR 自動ラベリング、Actions lockfile（`actions.lock`）によるアクションの推移的固定、Docker ベースイメージの digest 固定
 - セキュリティ: secretlint / pnpm audit / Trivy（SARIF を Security タブへ）、CycloneDX SBOM、hadolint / actionlint / zizmor
 - AI エージェント実行環境: [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) 用 kit（`.sandbox/` — Claude Code / Codex / OpenCode + Chrome DevTools MCP）
 

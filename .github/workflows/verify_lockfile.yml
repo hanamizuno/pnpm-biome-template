@@ -1,0 +1,43 @@
+name: Verify Actions Lockfile
+
+# .github/workflows/actions.lock がワークフローとずれている、または
+# ロック済みの pin が upstream で検証できなくなった場合に失敗する。
+# cf. https://docs.github.com/en/actions/how-tos/secure-your-work/lock-workflow-dependencies
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install gh-actions-lock
+        # 再現性のためバージョン固定。Dependabot は gh 拡張を追跡しないため更新は手動
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-actions-lock --pin v0.4.1
+
+      - name: Verify lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify
