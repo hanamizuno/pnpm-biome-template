@@ -6,11 +6,11 @@ workflows:
     '.github/workflows/copilot-setup-steps.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/deps-update.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/label_pr.yml':
         - 'actions/labeler@v7.0.0'
     '.github/workflows/labels.yml':
@@ -18,30 +18,30 @@ workflows:
     '.github/workflows/lint.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/lint_docker.yml':
         - 'actions/checkout@v7.0.1'
         - 'hadolint/hadolint-action@v3.5.0'
     '.github/workflows/lint_gha.yml':
         - 'actions/checkout@v7.0.1'
-        - 'astral-sh/setup-uv@v10.3.1'
+        - 'astral-sh/setup-uv@v10.3.3'
     '.github/workflows/sbom.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
         - 'actions/upload-artifact@v7.0.2'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/security.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
         - 'aquasecurity/trivy-action@v0.36.0'
-        - 'github/codeql-action@v4.39.1'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'github/codeql-action@v4.39.2'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/test.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/github-script@v9.0.0'
         - 'actions/setup-node@v7.1.0'
         - 'actions/upload-artifact@v7.0.2'
-        - 'pnpm/action-setup@v6.1.0'
+        - 'pnpm/action-setup@v6.1.1'
     '.github/workflows/verify_lockfile.yml':
         - 'actions/checkout@v7.0.1'
 dependencies:
@@ -101,14 +101,14 @@ dependencies:
         uses:
             - 'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae'
             - 'aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514'
-    'astral-sh/setup-uv@v10.3.1':
-        ref: 'v10.3.1'
-        commit: 'sha1-18d369b23da25a81e9458561248e1aafff6a70fa'
+    'astral-sh/setup-uv@v10.3.3':
+        ref: 'v10.3.3'
+        commit: 'sha1-68559e99cc807c1eb7e9238fd43a15bba460eec2'
         owner_id: 115962839
         repo_id: 846733598
-    'github/codeql-action@v4.39.1':
-        ref: 'v4.39.1'
-        commit: 'sha1-9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
+    'github/codeql-action@v4.39.2':
+        ref: 'v4.39.2'
+        commit: 'sha1-1fc58d04a4d4374f921bdac573c3811c240f9c26'
         owner_id: 9919
         repo_id: 259445878
     'hadolint/hadolint-action@v3.5.0':
@@ -116,8 +116,8 @@ dependencies:
         commit: 'sha1-06be81baf89a55ffd0e24b8f04a4185738dd3387'
         owner_id: 34047791
         repo_id: 212438777
-    'pnpm/action-setup@v6.1.0':
-        ref: 'v6.1.0'
-        commit: 'sha1-ea17c68df8912ef543352723c149a84f56e3d413'
+    'pnpm/action-setup@v6.1.1':
+        ref: 'v6.1.1'
+        commit: 'sha1-73e46992e05b19abd31f2f3c20e0e7370d762115'
         owner_id: 21320719
         repo_id: 262289747
