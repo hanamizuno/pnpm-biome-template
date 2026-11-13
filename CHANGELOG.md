@@ -9,6 +9,7 @@
 ### Removed
 
 - Dev Container 一式を削除し、AI エージェント実行環境を Docker Sandboxes（`sbx`、`.sandbox/`）に一本化（`.devcontainer/`、`Dockerfile` の `devcontainer` ステージ、Proton Pass / pass-cli によるシークレット運用と `example.env`、`dependabot.yml` の `devcontainers` エコシステム、`runbooks/devcontainer.md`）
+- `53b4314` で誤ってコミットされていた Dev Container 用ホスト設定の残骸（`.devcontainer/host-claude/`、`host-gitignore`、`host-gituser`、`compose.local.yaml`）を削除
 
 ### Added
 
